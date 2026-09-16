@@ -475,6 +475,43 @@ h2 {
   margin-top: 10px;
 }
 
+.plan-output {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0 12px;
+}
+
+.word-download-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 360px;
+  max-width: 100%;
+  min-height: 76px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.word-download-card:hover { border-color: var(--primary); background: var(--primary-soft); }
+.word-download-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.word-download-card:disabled { opacity: 0.65; cursor: wait; }
+.word-download-card > .lucide { width: 18px; height: 18px; flex-shrink: 0; }
+.word-file-icon { display: grid; place-items: center; width: 40px; height: 44px; flex-shrink: 0; border-radius: 6px; background: var(--primary-soft); }
+.word-file-icon .lucide { width: 25px; height: 25px; }
+.word-download-copy { flex: 1; min-width: 0; }
+.word-download-copy strong { display: block; margin-bottom: 4px; font-size: 15px; font-weight: 600; }
+.word-download-copy > span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.word-download-status { max-width: 4em; flex-shrink: 0; color: var(--muted); font-size: 12px; }
+.word-download-card[data-ready="true"] .word-download-status { color: var(--green); }
+
 .section-heading {
   justify-content: space-between;
   margin-bottom: 12px;

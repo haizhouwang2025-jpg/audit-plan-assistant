@@ -1138,6 +1138,7 @@ function renderSchedule(warnings = []) {
     const check = document.getElementById("check-summary");
     if (!document.querySelector("#issues-list .bad")) { check.textContent = "日程待确认"; check.className = "tag warn"; }
   }
+  updateWordDownloadState();
 }
 
 function preparePlanPreview() {
@@ -1146,9 +1147,7 @@ function preparePlanPreview() {
   const model = buildHaidePlanModel();
   window.currentHaidePlan = model;
   document.getElementById("preview-content").innerHTML = renderHaidePlan(model);
-  const word = document.getElementById("btn-preview-word");
-  word.disabled = model.warnings.length > 0;
-  word.title = model.warnings.length ? "请先补齐预览中的待确认事项" : "下载海德标准格式 Word 审核计划";
+  updateWordDownloadState(model);
   syncPrintContent();
 }
 
@@ -2039,6 +2038,7 @@ document.getElementById("plan-preview").addEventListener("close", () => document
 document.getElementById("btn-print").addEventListener("click", printPlan);
 document.getElementById("btn-preview-print").addEventListener("click", printPlan);
 document.getElementById("btn-preview-word").addEventListener("click", downloadHaideWord);
+document.getElementById("btn-download-word").addEventListener("click", downloadHaideWord);
 window.addEventListener("beforeprint", preparePlanPrint);
 document.getElementById("btn-add-dept").addEventListener("click", addDepartment);
 document.getElementById("btn-add-auditor").addEventListener("click", addAuditor);

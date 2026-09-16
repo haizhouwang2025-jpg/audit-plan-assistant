@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#b21e35">
   <title>审核计划辅助系统</title>
-  <link rel="stylesheet" href="styles.css?v=20260916-haide">
+  <link rel="stylesheet" href="styles.css?v=20260916-word-card">
   <link rel="icon" href="assets/head-certification-logo.png" type="image/png">
 </head>
 <body>
@@ -203,6 +203,16 @@
         </aside>
       </section>
 
+      <section class="plan-output" aria-labelledby="output-title">
+        <h2 id="output-title">审核计划输出</h2>
+        <button id="btn-download-word" class="word-download-card" type="button" aria-describedby="word-download-status">
+          <span class="word-file-icon"><i data-lucide="file-text" aria-hidden="true"></i></span>
+          <span class="word-download-copy"><strong>下载 Word</strong><span>审核实施计划 · DOCX</span></span>
+          <span id="word-download-status" class="word-download-status" role="status">待确认</span>
+          <i data-lucide="download" aria-hidden="true"></i>
+        </button>
+      </section>
+
       <section class="schedule-panel" aria-labelledby="schedule-title">
         <div class="section-heading">
           <h2 id="schedule-title">审核日程预览</h2>
@@ -249,8 +259,8 @@
   <script src="vendor/lucide/lucide.min.js"></script>
   <script src="haide-fields.js"></script>
   <script src="haide-template.js"></script>
-  <script src="haide-plan.js"></script>
+  <script src="haide-plan.js?v=20260916-word-card"></script>
   <script src="audit-rules.js"></script>
-  <script src="app.js?v=20260916-haide"></script>
+  <script src="app.js?v=20260916-word-card"></script>
 </body>
 </html>

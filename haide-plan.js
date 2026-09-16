@@ -134,15 +134,32 @@ async function createHaideWord(model) {
   return zip.generateAsync({type:"blob",mimeType:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",compression:"DEFLATE"});
 }
 
+let haideWordDownloading = false;
+
+function updateWordDownloadState(model = buildHaidePlanModel()) {
+  const pending = model.warnings.length > 0;
+  const preview = document.getElementById("btn-preview-word");
+  const card = document.getElementById("btn-download-word");
+  preview.disabled = pending || haideWordDownloading;
+  preview.title = pending ? "请先补齐预览中的待确认事项" : "下载海德标准格式 Word 审核计划";
+  card.disabled = haideWordDownloading;
+  card.dataset.ready = String(!pending);
+  card.setAttribute("aria-busy", String(haideWordDownloading));
+  card.title = pending ? "信息待确认，点击查看待确认事项" : "下载海德标准格式 Word 审核计划";
+  document.getElementById("word-download-status").textContent = haideWordDownloading ? "正在生成…" : pending ? "待确认" : "可下载";
+}
+
 async function downloadHaideWord() {
-  const button=document.getElementById("btn-preview-word");
+  if (haideWordDownloading) return;
+  preparePlanPreview();
   const model=window.currentHaidePlan;
-  if(!model || model.warnings.length) return;
-  button.disabled=true;
+  if(model.warnings.length) { openPlanPreview(); return; }
+  haideWordDownloading=true;
+  updateWordDownloadState(model);
   try {
     const blob=await createHaideWord(model), url=URL.createObjectURL(blob), a=document.createElement("a");
     a.href=url; a.download=`${model.fields.company.replace(/[<>:"/\\|?*]/g,"_")}_审核实施计划.docx`; a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   } catch(error) { window.alert(`导出失败：${error.message}`); }
-  finally { button.disabled=false; }
+  finally { haideWordDownloading=false; updateWordDownloadState(); }
 }
