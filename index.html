@@ -3,29 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#b21e35">
   <title>审核计划辅助系统</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260916-haide">
+  <link rel="icon" href="assets/head-certification-logo.png" type="image/png">
 </head>
 <body>
   <div class="app-shell">
     <aside class="app-rail" aria-label="主导航">
-      <div class="rail-logo">QMS</div>
+      <div class="rail-logo" title="海德认证"><img src="assets/head-certification-logo.png" alt="海德认证"></div>
       <nav class="rail-nav" aria-label="模块导航">
-        <button class="rail-item is-active" type="button" aria-label="首页">⌂</button>
-        <button class="rail-item" type="button" aria-label="计划">□</button>
-        <button class="rail-item" type="button" aria-label="文档">▤</button>
-        <button class="rail-item" type="button" aria-label="审核">◇</button>
-        <button class="rail-item" type="button" aria-label="人员">○</button>
-        <button class="rail-item" type="button" aria-label="统计">↗</button>
-        <button class="rail-item" type="button" aria-label="设置">⚙</button>
+        <button class="rail-item is-active" type="button" aria-label="首页" title="首页"><i data-lucide="house"></i></button>
+        <button class="rail-item" type="button" aria-label="计划" title="计划"><i data-lucide="calendar-days"></i></button>
+        <button class="rail-item" type="button" aria-label="文档" title="文档"><i data-lucide="files"></i></button>
+        <button class="rail-item" type="button" aria-label="审核" title="审核"><i data-lucide="shield-check"></i></button>
+        <button class="rail-item" type="button" aria-label="人员" title="人员"><i data-lucide="users"></i></button>
+        <button class="rail-item" type="button" aria-label="统计" title="统计"><i data-lucide="chart-no-axes-combined"></i></button>
+        <button class="rail-item" type="button" aria-label="设置" title="设置"><i data-lucide="settings"></i></button>
       </nav>
-      <button class="rail-collapse" type="button" aria-label="收起导航">›</button>
+      <button class="rail-collapse" type="button" aria-label="收起导航" title="收起导航"><i data-lucide="chevron-left"></i></button>
     </aside>
 
     <div class="app-main">
       <header class="topbar">
         <div class="title-stack">
-          <p class="eyebrow"><span id="profile-breadcrumb">单Q版</span> <span>›</span> 审核计划管理</p>
+          <p class="eyebrow"><img class="mobile-brand-logo" src="assets/head-certification-logo.png" alt=""><strong class="brand-name">海德认证</strong><span aria-hidden="true">/</span><span id="profile-breadcrumb">质量单体系</span></p>
           <div class="title-row">
             <h1>审核计划辅助系统</h1>
             <span class="info-dot" aria-label="说明">?</span>
@@ -33,13 +35,13 @@
         </div>
         <div class="header-tools">
           <label class="search-box" aria-label="搜索">
-            <span>⌕</span>
+            <i data-lucide="search" aria-hidden="true"></i>
             <input type="search" placeholder="搜索项目、部门或条款...">
             <kbd>⌘ K</kbd>
           </label>
-          <button class="icon-button has-dot" type="button" aria-label="通知">!</button>
-          <button class="icon-button" type="button" aria-label="帮助">?</button>
-          <button class="avatar-button" type="button" aria-label="用户菜单">JC</button>
+          <button class="icon-button has-dot" type="button" aria-label="通知" title="通知"><i data-lucide="bell"></i></button>
+          <button class="icon-button" type="button" aria-label="帮助" title="帮助"><i data-lucide="circle-help"></i></button>
+          <button class="avatar-button" type="button" aria-label="用户菜单" title="用户菜单"><i data-lucide="user-round"></i></button>
         </div>
       </header>
 
@@ -48,7 +50,7 @@
           <details class="notice-panel compact-notice">
             <summary>
               <span>
-                <span class="notice-icon">▣</span>
+                <span class="notice-icon"><i data-lucide="clipboard-list" aria-hidden="true"></i></span>
                 <span>
                   <strong>参考文件信息</strong>
                   <span id="notice-summary">示例企业（演示） / 初次认证第二阶段 / 2 天 / 4.0 人日</span>
@@ -110,11 +112,11 @@
           </details>
           <div class="top-actions">
             <input id="notice-file" type="file" accept=".xlsx,.pdf,.txt" hidden>
-            <button id="btn-import" class="btn btn-import" type="button">导入参考文件</button>
-            <button id="btn-suggest" class="btn" type="button">重置建议</button>
-            <button id="btn-schedule" class="btn btn-primary" type="button">生成日程</button>
-            <button id="btn-preview" class="btn" type="button" aria-haspopup="dialog" aria-controls="plan-preview">预览</button>
-            <button id="btn-print" class="btn" type="button">打印</button>
+            <button id="btn-import" class="btn btn-import" type="button"><i data-lucide="upload" aria-hidden="true"></i><span>导入参考文件</span></button>
+            <button id="btn-suggest" class="btn" type="button"><i data-lucide="rotate-ccw" aria-hidden="true"></i>重置建议</button>
+            <button id="btn-schedule" class="btn btn-primary" type="button"><i data-lucide="calendar-days" aria-hidden="true"></i>生成日程</button>
+            <button id="btn-preview" class="btn" type="button" aria-haspopup="dialog" aria-controls="plan-preview"><i data-lucide="eye" aria-hidden="true"></i>预览</button>
+            <button id="btn-print" class="btn" type="button"><i data-lucide="printer" aria-hidden="true"></i>打印</button>
           </div>
         </section>
 
@@ -232,9 +234,9 @@
         <span class="preview-format">海德标准表 · A4 纵向</span>
       </div>
       <div class="preview-actions">
-        <button id="btn-preview-close" class="btn" type="button" autofocus>返回编辑</button>
-        <button id="btn-preview-word" class="btn" type="button">导出 Word</button>
-        <button id="btn-preview-print" class="btn btn-primary" type="button">打印</button>
+        <button id="btn-preview-close" class="btn" type="button" autofocus><i data-lucide="arrow-left" aria-hidden="true"></i>返回编辑</button>
+        <button id="btn-preview-word" class="btn" type="button"><i data-lucide="download" aria-hidden="true"></i>导出 Word</button>
+        <button id="btn-preview-print" class="btn btn-primary" type="button"><i data-lucide="printer" aria-hidden="true"></i>打印</button>
       </div>
     </header>
     <div id="preview-scroll" class="preview-scroll" tabindex="0" aria-label="审核计划正文">
@@ -244,10 +246,11 @@
   <div id="print-content" aria-hidden="true"></div>
 
   <script src="vendor/jszip/jszip.min.js"></script>
+  <script src="vendor/lucide/lucide.min.js"></script>
   <script src="haide-fields.js"></script>
   <script src="haide-template.js"></script>
   <script src="haide-plan.js"></script>
   <script src="audit-rules.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=20260916-haide"></script>
 </body>
 </html>

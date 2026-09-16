@@ -13,6 +13,7 @@
 !/README.md
 !/THIRD_PARTY_NOTICES.md
 !/vendor/
+!/assets/
 
 # Never add project inputs, generated records, or credentials.
 *.xlsx
@@ -30,3 +31,5 @@ output/
 outputs/
 _source_extract/
 _sample_extract/
+/assets/*
+!/assets/head-certification-logo.png

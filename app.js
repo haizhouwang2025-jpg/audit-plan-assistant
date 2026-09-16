@@ -180,21 +180,25 @@ const categoryText = {
 function normalizeSystemCodes(value) {
   const source = Array.isArray(value) ? value.join(",") : valueToString(value);
   const compact = source.toUpperCase().replace(/\s+/g, "");
+  const tokens = source.toUpperCase().split(/[\s、,，;；/+＋&＆()（）]+/).filter(Boolean);
+  const shortCodes = tokens.flatMap((token) => /^[QES]{1,3}$/.test(token) ? token.split("") : []);
+  const singleCode = compact.match(/(?:单一?|单体系)([QES])(?:版|体系)?/);
+  if (singleCode) shortCodes.push(singleCode[1]);
   const systems = [];
-  if (compact.includes("QES")) systems.push("QMS", "EMS", "OHSMS");
-  if (/(^|[,，;；/])Q(MS)?(?=$|[,，;；/])|ISO9001|19001|质量/i.test(compact)) systems.push("QMS");
-  if (/(^|[,，;；/])E(MS)?(?=$|[,，;；/])|ISO14001|24001|环境/i.test(compact)) systems.push("EMS");
-  if (/(^|[,，;；/])S(?=$|[,，;；/])|OHSMS|OHSAS|ISO45001|45001|职业健康/i.test(compact)) systems.push("OHSMS");
+  if (shortCodes.includes("Q") || tokens.includes("QMS") || /ISO9001|19001|质量/i.test(compact)) systems.push("QMS");
+  if (shortCodes.includes("E") || tokens.includes("EMS") || /ISO14001|24001|环境/i.test(compact)) systems.push("EMS");
+  if (shortCodes.includes("S") || /OHSMS|OHSAS|ISO45001|45001|职业健康/i.test(compact)) systems.push("OHSMS");
   if (/ENMS|ISO50001|50001|能源/i.test(compact)) systems.push("ENMS");
   if (/ISMS|ISO27001|27001|信息安全/i.test(compact)) systems.push("ISMS");
   if (/FSMS|ISO22000|22000|食品安全/i.test(compact)) systems.push("FSMS");
   if (/(^|[,，;；/])SMS(?=$|[,，;；/])|20000|服务管理/i.test(compact)) systems.push("SMS");
-  return systems.length ? [...new Set(systems)] : compact ? [compact] : ["QMS"];
+  return systems.length ? [...new Set(systems)] : compact ? [compact] : [];
 }
 
 function getSystemProfileLabel() {
   const count = state.systems.length;
-  if (count === 1) return state.systems[0] === "QMS" ? "单Q版" : `单${systemCatalog[state.systems[0]]?.code || state.systems[0]}版`;
+  if (!count) return "待识别体系";
+  if (count === 1) return `${systemCatalog[state.systems[0]]?.name || state.systems[0]}单体系`;
   if (count === 2) return "二体系整合";
   if (count === 3) return "三体系整合";
   return `${count}体系整合`;
@@ -217,6 +221,60 @@ function renderSystemProfile() {
     ${getSystemBadgesHtml()}
   `;
   document.getElementById("profile-breadcrumb").textContent = getSystemProfileLabel();
+  document.getElementById("ems-version").closest("label").hidden = !state.systems.includes("EMS");
+}
+
+function hasSystemInput(value) {
+  const text = valueToString(value);
+  return Boolean(text) && !/^(无|否|不适用|不涉及|未申请|未认证|不申请|无此体系|N\/?A|NONE|NULL|[-—–/]+|0)$/i.test(text);
+}
+
+function systemEvidenceFromSheet(rows = []) {
+  const aliases = { Q: "QMS", QMS: "QMS", E: "EMS", EMS: "EMS", S: "OHSMS", OHSMS: "OHSMS", OHSAS: "OHSMS" };
+  const seen = new Set(), active = new Set();
+  for (const row of rows) {
+    if (!row) continue;
+    const index = row.findIndex(value => /^审核范围\s*(QMS|Q|EMS|E|OHSMS|OHSAS|S)$/i.test(valueToString(value)));
+    if (index < 0) continue;
+    const code = valueToString(row[index]).match(/(QMS|Q|EMS|E|OHSMS|OHSAS|S)$/i)[1].toUpperCase();
+    const system = aliases[code];
+    seen.add(system);
+    if (row.slice(index + 1).some(hasSystemInput)) active.add(system);
+  }
+  return { seen: [...seen], active: ["QMS", "EMS", "OHSMS"].filter(system => active.has(system)) };
+}
+
+function resolvePlanSystems(plan) {
+  const project = plan.project;
+  const declared = normalizeSystemCodes(project.audit_systems);
+  const recognized = declared.filter(system => systemCatalog[system]);
+  const scopeSystems = ["QMS", "EMS", "OHSMS"].filter(system => {
+    const suffix = { QMS: "q", EMS: "e", OHSMS: "s" }[system];
+    return hasSystemInput(project[`scope_${suffix}`]) || hasSystemInput(project[`scope_text_${suffix}`]);
+  });
+  let systems, source;
+  // The original form's scope rows outrank a legacy hidden sheet's fixed QES value.
+  if (plan.systemEvidence?.seen.length === 3) {
+    systems = [...plan.systemEvidence.active, ...recognized.filter(system => !["QMS", "EMS", "OHSMS"].includes(system))];
+    source = "原表实际填写的审核范围";
+  } else if (recognized.length) {
+    systems = declared;
+    source = "体系组合字段";
+  } else if (scopeSystems.length) {
+    systems = scopeSystems;
+    source = "各体系认证范围";
+  } else {
+    const standards = [project.criteria_q, project.criteria_e, project.criteria_s, project.standard_q, project.standard_e, project.standard_s, project.audit_criteria].filter(hasSystemInput);
+    systems = normalizeSystemCodes(standards).filter(system => systemCatalog[system]);
+    source = "审核标准";
+  }
+  if (!systems.length) throw new Error("未能识别本项目体系。请填写实际审核范围或明确的体系组合（如Q、E、S、Q+E），保存后重新导入。");
+  project.audit_systems = uniqueList(systems).join(",");
+  plan.notes.push(`已根据${source}识别 ${systems.map(system => systemCatalog[system]?.code || system).join("/")} 体系。`);
+  if (plan.systemEvidence?.seen.length === 3 && declared.length && declared.join(",") !== systems.join(",")) {
+    plan.notes.push("隐藏页的体系组合与原表范围不一致，已按原表实际填写内容更新；请核对识别结果。");
+  }
+  return systems;
 }
 
 function getClauseSystemMark(clause) {
@@ -290,6 +348,7 @@ function renderProfessionalStrategy() {
   const commonItem = {
     ...professionalStrategyLibrary.COMMON,
     badge: commonBadge,
+    clauses: ["4", "5", "7.5", "9.2", "9.3", "10.1", "10.3"].filter(number => activeClauses().some(clause => clause.number === number || clause.number.startsWith(`${number}.`))).join("、"),
     title: state.systems.length > 1 ? "整合通用条款" : "通用条款",
     note: state.systems.length > 1
       ? "同号通用条款合并展示，各体系证据分别核对。"
@@ -298,7 +357,11 @@ function renderProfessionalStrategy() {
   const strategyItems = [
     { ...commonItem, color: "common" },
     ...state.systems
-      .map((system) => professionalStrategyLibrary[system] ? { ...professionalStrategyLibrary[system], color: systemCatalog[system]?.color || "q" } : null)
+      .map((system) => {
+        const strategy = professionalStrategyLibrary[system];
+        if (!strategy) return null;
+        return { ...strategy, clauses: system === "EMS" && state.emsVersion === "2015" ? strategy.clauses.replace("6.1.2-6.1.5", "6.1.2-6.1.4") : strategy.clauses, color: systemCatalog[system]?.color || "q" };
+      })
       .filter(Boolean)
   ];
   list.innerHTML = "";
@@ -1482,7 +1545,9 @@ async function parseAuditPlanWorkbook(file) {
   });
 
   if (sheetRows["Sheet2_小程序读取"]) {
-    return parseMachineReadSheet(sheetRows["Sheet2_小程序读取"]);
+    const plan = parseMachineReadSheet(sheetRows["Sheet2_小程序读取"]);
+    plan.systemEvidence = systemEvidenceFromSheet(sheetRows.Sheet1);
+    return plan;
   }
 
   const project = parseProjectRows(sheetRows["01_项目信息"] || []);
@@ -1678,6 +1743,7 @@ function prepareImportedPlan(plan) {
     throw new Error("缺少企业、部门或审核组信息。请使用配套导入表，并在 Excel 中完成计算后保存为 .xlsx。");
   }
   plan.notes = [];
+  const systems = resolvePlanSystems(plan);
   for (const prefix of ["stage1", "stage2"]) {
     const start = plan.project[`${prefix}_start_date`], end = plan.project[`${prefix}_end_date`];
     if (start && end && (!Number.isFinite(Date.parse(start)) || !Number.isFinite(Date.parse(end)) || end < start || (Date.parse(end) - Date.parse(start)) / 86400000 >= 60)) {
@@ -1687,7 +1753,6 @@ function prepareImportedPlan(plan) {
   const emsSource = valueToString(plan.project.ems_version || plan.project.standard_e);
   plan.emsVersion = /2015/.test(emsSource) ? "2015" : "2026";
   clauseLibrary = buildQesLibrary(qmsClauseLibrary, plan.emsVersion);
-  const systems = normalizeSystemCodes(plan.project.audit_systems);
   if (systems.includes("EMS") && !emsSource) plan.notes.push("环境体系按已约定的 ISO 14001:2026 编排；可在参考文件信息中切换版本。");
   const has29 = yesNoToBoolean(plan.project.has_29_scope) || /(^|\D)29(?:\.|\b)/.test(valueToString(plan.project.industry_code || plan.project.scope_q));
   const merged = new Map();
@@ -1718,7 +1783,7 @@ function prepareImportedPlan(plan) {
         ids.push(...expanded);
       });
     });
-    (plan.mappings || []).filter((item) => item.deptId === source.id).forEach((item) => ids.push(...expandClauseId(item.clauseId)));
+    (plan.mappings || []).filter((item) => item.deptId === source.id).forEach((item) => ids.push(...expandClauseId(item.clauseId).filter(id => systems.includes(getClause(id)?.system))));
     const key = source.actualName || source.name;
     if (!merged.has(key)) merged.set(key, { ...source, clauseIds: [], processes: [], processLabels: [], auditorIds: [] });
     const dept = merged.get(key);
@@ -1906,7 +1971,7 @@ async function handleNoticeImport(event) {
   const backup = { state: structuredClone(state), presets: structuredClone(phasePresets), fields: Object.fromEntries([...phaseFieldIds, "company", "scope", "ems-version"].map((id) => [id, document.getElementById(id).value])) };
   state.importedFileName = file.name;
   const importButton = document.getElementById("btn-import");
-  importButton.textContent = "解析中...";
+  importButton.querySelector("span").textContent = "解析中...";
   importButton.title = file.name;
 
   try {
@@ -1914,7 +1979,7 @@ async function handleNoticeImport(event) {
       const plan = await parseAuditPlanWorkbook(file);
       applyImportedPlan(plan);
       state.importFindings = buildWorkbookFindings(state.importedPlan);
-      importButton.textContent = "已导入参考文件";
+      importButton.querySelector("span").textContent = "已导入参考文件";
       render();
       generateSchedule();
       return;
@@ -1926,7 +1991,7 @@ async function handleNoticeImport(event) {
     applyPhasePreset(phaseId);
     applyParsedNotice(parsed);
     state.importFindings = buildImportFindings(parsed, file);
-    importButton.textContent = /\.(xls|xlsx)$/i.test(file.name) ? "已接收参考文件" : "已导入参考文件";
+    importButton.querySelector("span").textContent = /\.(xls|xlsx)$/i.test(file.name) ? "已接收参考文件" : "已导入参考文件";
     render();
     generateSchedule();
   } catch (error) {
@@ -1936,7 +2001,7 @@ async function handleNoticeImport(event) {
     clauseLibrary = buildQesLibrary(qmsClauseLibrary, state.emsVersion);
     Object.entries(backup.fields).forEach(([id, value]) => { document.getElementById(id).value = value; });
     state.importFindings = [`读取失败：${error.message || "无法解析该文件"}。已保留原计划。`, ...state.importFindings];
-    importButton.textContent = "导入失败";
+    importButton.querySelector("span").textContent = "导入失败";
     render();
     generateSchedule();
   } finally {
@@ -2000,4 +2065,5 @@ document.getElementById("ems-version").addEventListener("change", (event) => {
   generateSchedule();
 });
 
+lucide.createIcons();
 resetSuggestedAssignments();

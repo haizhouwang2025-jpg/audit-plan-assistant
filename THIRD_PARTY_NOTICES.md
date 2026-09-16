@@ -1,5 +1,16 @@
 # Third-Party Notices
 
+## Lucide
+
+- Version: 1.8.0
+- Project: https://lucide.dev/
+- License: ISC. The full notice is included at `vendor/lucide/LICENSE`.
+- Bundled locally for interface icons; no runtime CDN connection is used.
+
+## Haide Interface Branding
+
+The red logo and interface primary color (#B21E35) are reused at the user's request from their separate Haide website project. The logo is an institution brand asset, not an open-source icon, and is not covered by the software licenses below. The supplied Word form retains its own reference layout and logo.
+
 ## JSZip
 
 - Version: 3.10.1
