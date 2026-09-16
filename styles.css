@@ -412,6 +412,8 @@ h2 {
   margin-top: 7px;
 }
 
+.system-context { color: var(--muted); font-size: 12px; }
+
 .system-mode,
 .system-chip,
 .clause-system {

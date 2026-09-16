@@ -217,10 +217,10 @@ function renderSystemProfile() {
   const profile = document.getElementById("system-profile");
   if (!profile) return;
   profile.innerHTML = `
+    <span class="system-context">${state.importedPlan || state.importedFileName ? "当前项目" : "示例项目"}</span>
     <span class="system-mode">${escapeHtml(getSystemProfileLabel())}</span>
     ${getSystemBadgesHtml()}
   `;
-  document.getElementById("profile-breadcrumb").textContent = getSystemProfileLabel();
   document.getElementById("ems-version").closest("label").hidden = !state.systems.includes("EMS");
 }
 
