@@ -39,7 +39,7 @@ function buildHaidePlanModel() {
     shift: `${Number(document.getElementById("shift-hours").value)>0?"☑":"□"}针对倒班作业：需要进行其他班次的审核。`,
     outsourcing: `${yesNoToBoolean(project.outsource_visit)?"☑":"□"}针对外包过程：需要到外包方的作业现场进行审核。${text("outsource_details")?"\n"+text("outsource_details"):""}`,
     person_days: `总现场审核人日：${document.getElementById("person-days").value} 人日`,
-    dates: `审核日期：${date || "待确认"} ${document.getElementById("audit-start-time").value} 至 ${end || "待确认"} ${document.getElementById("audit-end-time").value}，共 ${scheduleWindow().days} 天`,
+    dates: `审核日期：${date || "待确认"} 至 ${end || "待确认"}，共 ${scheduleWindow().days} 天`,
     other_purpose: text("other_purpose"),
     schedule_notes: [`每日午休 ${document.getElementById("lunch-hours").value} 小时。`,text("site_arrangements"),text("travel_arrangements")?`转场安排（不计入审核人日）：${text("travel_arrangements")}`:"",text("schedule_notes")].filter(Boolean).join("\n")
   };
@@ -61,7 +61,7 @@ function buildHaidePlanModel() {
   if (text("coverage_start_date") && coverageEnd && text("coverage_start_date")>coverageEnd) warnings.push("审核覆盖起始日期晚于截止日期，请更正后再确认计划。");
   if (coverageEnd && end && coverageEnd>end) warnings.push("审核覆盖截止日期晚于本次审核结束日，请核对。");
   if (text("site_arrangements") || text("travel_arrangements") || yesNoToBoolean(project.outsource_visit)) warnings.push("多场所、外包或转场安排需组长核对实际日程；当前自动排程尚未扣除转场占用时段，不能将路途时间计为审核时间。");
-  const rows=state.scheduleRows.map((r)=>({date:r.date.split("-").map(Number).join("."),time:r.time.replace(/(^|-)0/g,"$1"),content:[r.process,r.clauses].filter(Boolean).join("\n"),auditors:(r.auditorIds || []).map(id=>getAuditor(id)?.code || id).join("、")}));
+  const rows=state.scheduleRows.map((r)=>({date:r.date.split("-").map(Number).join("."),time:r.time.replace(/(^|-)0/g,"$1"),content:[r.process,r.clauses ? `${["department","shift"].includes(r.kind) ? "涉及条款：\n" : ""}${r.clauses}` : ""].filter(Boolean).join("\n"),auditors:(r.auditorIds || []).map(id=>getAuditor(id)?.code || id).join("、")}));
   return {fields,auditors,rows,warnings:uniqueList(warnings)};
 }
 

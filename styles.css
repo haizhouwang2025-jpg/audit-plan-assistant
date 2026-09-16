@@ -827,6 +827,11 @@ textarea {
 #unassigned-section { margin-top: 12px; }
 #unassigned-section h3 { font-size: 13px; }
 .schedule-table td:nth-child(4) { white-space: pre-line; }
+.schedule-table td:nth-child(3) { white-space: pre-line; }
+.meeting-time-control { display: inline-grid; grid-template-columns: 94px 49px 26px; gap: 3px; align-items: center; }
+.meeting-time-control input { width: 94px; min-height: 32px; padding: 2px 4px; font-size: 12px; }
+.meeting-time-reset { display: grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 1px solid var(--line); border-radius: 4px; color: var(--primary); background: var(--surface); cursor: pointer; }
+.meeting-time-reset .lucide { width: 14px; height: 14px; }
 .auditor-lane-head > div { min-width: 0; overflow-wrap: anywhere; }
 .dept-stats { flex-shrink: 0; }
 
@@ -1165,12 +1170,12 @@ textarea {
   width: 100%;
   border-collapse: separate;
   border-spacing: 0;
-  min-width: 820px;
+  min-width: 1040px;
   table-layout: fixed;
 }
 
 .schedule-table th:nth-child(1) { width: 105px; }
-.schedule-table th:nth-child(2) { width: 110px; }
+.schedule-table th:nth-child(2) { width: 200px; }
 .schedule-table th:nth-child(3) { width: 32%; }
 .schedule-table th:nth-child(5) { width: 200px; }
 .schedule-table td { overflow-wrap: anywhere; }

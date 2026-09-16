@@ -151,6 +151,7 @@ const state = {
   systems: ["QMS"],
   emsVersion: "2026",
   phaseDrafts: {},
+  meetingOverrides: {},
   assignmentFindings: [],
   departments: [
     { id: "management", name: "管理层/管代", auditorIds: ["A"] },
@@ -332,6 +333,7 @@ const phaseFieldIds = ["audit-type", "start-date", "audit-days", "person-days", 
 
 function savePhaseDraft() {
   state.phaseDrafts[state.activePhase] = {
+    meetingOverrides: { ...state.meetingOverrides },
     departments: cloneDepartments(state.departments),
     assignments: structuredClone(state.assignments),
     professionalAssignments: structuredClone(state.professionalAssignments),
@@ -420,6 +422,7 @@ function buildAssignmentsForPreset(preset) {
 function applyPhasePreset(phaseId) {
   const preset = phasePresets[phaseId] || phasePresets.stage2;
   state.activePhase = phaseId;
+  state.meetingOverrides = {};
   state.departments = cloneDepartments(preset.departments);
   state.assignments = {};
   state.assignments = buildAssignmentsForPreset(preset);
@@ -434,6 +437,7 @@ function setActivePhase(phaseId) {
   const draft = state.phaseDrafts[phaseId];
   if (draft) {
     state.activePhase = phaseId;
+    state.meetingOverrides = { ...(draft.meetingOverrides || {}) };
     state.departments = cloneDepartments(draft.departments);
     state.assignments = structuredClone(draft.assignments);
     state.professionalAssignments = structuredClone(draft.professionalAssignments);
@@ -903,15 +907,17 @@ function addDays(dateString, offset) {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-function buildSegments() {
+function buildSegments(meetings = buildMeetingPlan().meetings) {
   const startDate = document.getElementById("start-date").value || "2026-08-25";
   const { days, start, end } = scheduleWindow();
   const lunch = Math.max(0, Number(document.getElementById("lunch-hours").value || 0)) * 60;
   const segments = [];
   for (let day = 0; day < days; day += 1) {
     const date = addDays(startDate, day);
+    const internal = meetings.find(m => m.kind === "internal" && m.date === date);
+    const workEnd = Math.min(end - 60, internal?.absStart ?? end - 90);
     for (const [left, right] of [[510, 720], [720 + lunch, 1020]]) {
-      segments.push({ date, absStart: Math.max(day * 1440 + left, start + 30), absEnd: Math.min(day * 1440 + right, end - 60) });
+      segments.push({ date, absStart: Math.max(day * 1440 + left, start + 30), absEnd: Math.min(day * 1440 + right, workEnd) });
     }
   }
   return segments.filter((segment) => segment.absEnd > segment.absStart);
@@ -929,7 +935,7 @@ function roundToQuarter(hours) {
   return Math.max(0.5, Math.floor(hours * 4) / 4);
 }
 
-function buildDepartmentDurations(mode) {
+function buildDepartmentDurations(mode, meetings = buildMeetingPlan().meetings) {
   const selectedDepartments = state.departments
     .map((dept) => {
       const { clauses, workload } = getDepartmentWorkload(dept);
@@ -938,8 +944,7 @@ function buildDepartmentDurations(mode) {
     .filter((item) => item.clauses.length);
 
   const personDays = Math.max(0.5, Number(document.getElementById("person-days").value || 1));
-  const allAuditorCount = state.auditors.filter(isIndependentAuditor).length;
-  const meetingPersonHours = 1.5 * allAuditorCount;
+  const meetingPersonHours = countedPersonHours(meetings);
   const shift = getShiftAssignment();
   const shiftPersonHours = shift ? shift.minutes / 60 * shift.auditorIds.filter((id) => isIndependentAuditor(getAuditor(id))).length : 0;
   const availablePersonHours = Math.max(0, personDays * 8 - meetingPersonHours - shiftPersonHours);
@@ -954,7 +959,7 @@ function buildDepartmentDurations(mode) {
   const durations = tasks.map((item) => {
     const shares = item.assignedIds.filter((id) => loads[id]).map((id) => budget * item.workload / loads[id]);
     const hours = shares.length ? Math.min(...shares) : 0;
-    return { ...item, rawMinutes: hours * 60, clockMinutes: Math.round(roundToQuarter(hours) * 60) };
+    return { ...item, rawMinutes: hours * 60, clockMinutes: hours > 0 ? Math.round(roundToQuarter(hours) * 60) : 0 };
   });
   const assignedMinutes = Object.fromEntries(Object.keys(loads).map((id) => [id, durations.filter((item) => item.assignedIds.includes(id)).reduce((sum, item) => sum + item.clockMinutes, 0)]));
   const ranked = [...durations].sort((a, b) => (b.rawMinutes - b.clockMinutes) - (a.rawMinutes - a.clockMinutes));
@@ -976,10 +981,8 @@ function clauseText(clauses) {
 }
 
 function processText(deptName, clauses) {
-  const titles = uniqueList(clauses.map((clause) => clause.title)).join("；");
-  const dept = state.departments.find((item) => item.name === deptName);
-  const extra = [dept?.manager ? `负责人：${dept.manager}` : "", dept?.site ? `审核场所：${dept.site}` : "", dept?.processNotes].filter(Boolean).join("\n");
-  return `${deptName}${state.activePhase === "stage1" ? "（文件、现场及二阶段准备度确认）" : ""}：${titles}。${extra ? "\n" + extra : ""}`;
+  const dept = state.departments.find((item) => item.name === deptName) || { name: deptName };
+  return buildPlanProcessText(dept, clauses, state.activePhase, state.emsVersion);
 }
 
 function getShiftAssignment() {
@@ -1006,29 +1009,17 @@ function generateSchedule() {
     return;
   }
   const mode = document.getElementById("team-mode").value;
-  const startDate = document.getElementById("start-date").value || "2026-08-25";
-  const days = Math.max(1, Number(document.getElementById("audit-days").value || 1));
-  const segments = buildSegments();
+  const meetingPlan = buildMeetingPlan();
+  const segments = buildSegments(meetingPlan.meetings);
   const allAuditorIds = state.auditors.map((auditor) => auditor.id);
   const cursors = Object.fromEntries(allAuditorIds.map((id) => [id, segments[0]?.absStart || 0]));
-  const rows = [];
-  const warnings = [];
-  const window = scheduleWindow();
-  const lastDate = addDays(startDate, days - 1);
-
-  rows.push({
-    date: startDate,
-    time: `${formatTime(window.start)}-${formatTime(window.start + 30)}`,
-    process: "首次会议",
-    clauses: "审核目的、范围、准则、方法确认",
-    auditorIds: allAuditorIds,
-    auditors: getAuditorDisplay(allAuditorIds)
-  });
-
-  const workItems = buildDepartmentDurations(mode);
+  const rows = [...meetingPlan.meetings];
+  const warnings = [...meetingPlan.warnings];
+  const workItems = buildDepartmentDurations(mode, meetingPlan.meetings);
   workItems.forEach((item) => {
     let remaining = item.clockMinutes;
     const assignedIds = item.assignedIds;
+    if (!remaining) { warnings.push(`${item.dept.name} 尚未排定，批准审核人日不足以分配部门审核时间。`); return; }
     if (!assignedIds.some((id) => isIndependentAuditor(getAuditor(id)))) {
       warnings.push(`${item.dept.name} 缺少可独立主审人员，尚未排入日程。`);
       return;
@@ -1045,6 +1036,7 @@ function generateSchedule() {
       const chunk = Math.min(remaining, remainingInSegment);
       const end = start + chunk;
       rows.push({
+        kind: "department", departmentId: item.dept.id,
         date: segment.date,
         time: `${formatTime(start)}-${formatTime(end)}`,
         process: processText(item.dept.name, item.clauses),
@@ -1059,34 +1051,9 @@ function generateSchedule() {
     }
   });
 
-  rows.push({
-    date: lastDate,
-    time: `${formatTime(window.end - 60)}-${formatTime(window.end - 45)}`,
-    process: "审核组内部沟通，给出审核结论",
-    clauses: "汇总审核发现",
-    auditorIds: allAuditorIds,
-    auditors: getAuditorDisplay(allAuditorIds)
-  });
-  rows.push({
-    date: lastDate,
-    time: `${formatTime(window.end - 45)}-${formatTime(window.end - 30)}`,
-    process: "与企业最高管理层沟通",
-    clauses: "审核结论沟通",
-    auditorIds: allAuditorIds,
-    auditors: getAuditorDisplay(allAuditorIds)
-  });
-  rows.push({
-    date: lastDate,
-    time: `${formatTime(window.end - 30)}-${formatTime(window.end)}`,
-    process: "末次会议",
-    clauses: "确认不符合、后续安排",
-    auditorIds: allAuditorIds,
-    auditors: getAuditorDisplay(allAuditorIds)
-  });
-
   const shiftHours = Number(document.getElementById("shift-hours").value || 0);
   const shift = getShiftAssignment();
-  if (shift) rows.push({ date: shift.date, time: `${formatTime(shift.start)}-${formatTime(shift.start + shift.minutes)}`, process: `${shift.dept.name}：非正常办公班次审核`, clauses: clauseText(clausesForDepartment(shift.dept)), auditorIds: shift.auditorIds, auditors: getAuditorDisplay(shift.auditorIds) });
+  if (shift) rows.push({ kind: "shift", date: shift.date, time: `${formatTime(shift.start)}-${shift.start + shift.minutes === 1440 ? "24:00" : formatTime(shift.start + shift.minutes)}`, process: `${shift.dept.name}：非正常办公班次审核`, clauses: clauseText(clausesForDepartment(shift.dept)), auditorIds: shift.auditorIds, auditors: getAuditorDisplay(shift.auditorIds) });
   else if (shiftHours) warnings.push(`倒班审核 ${shiftHours}h 尚未排定，请确认日期及非办公班次开始时间（不少于1h，当前支持当日17:00后且在审核起止范围内）。`);
   if (!document.getElementById("start-date").value) warnings.push("审核开始日期待确认。");
 
@@ -1095,7 +1062,7 @@ function generateSchedule() {
     return parseTime(a.time.slice(0, 5)) - parseTime(b.time.slice(0, 5));
   });
   state.scheduleRows = rows;
-  renderSchedule(warnings);
+  renderSchedule([...warnings, ...scheduleConflictWarnings(rows)]);
 }
 
 function renderSchedule(warnings = []) {
@@ -1106,7 +1073,7 @@ function renderSchedule(warnings = []) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${escapeHtml(row.date)}</td>
-      <td>${escapeHtml(row.time)}</td>
+      <td>${renderMeetingTime(row)}</td>
       <td>${escapeHtml(row.process)}</td>
       <td>${escapeHtml(row.clauses)}</td>
       <td>${escapeHtml(row.auditors)}</td>
@@ -1119,12 +1086,8 @@ function renderSchedule(warnings = []) {
     tbody.appendChild(tr);
   }
 
-  const personHours = state.scheduleRows.reduce((sum, row) => {
-    const [start, end] = row.time.split("-");
-    const minutes = parseTime(end) - parseTime(start);
-    const auditors = row.auditorIds?.filter((id) => isIndependentAuditor(getAuditor(id))).length || 0;
-    return sum + (minutes / 60) * auditors;
-  }, 0);
+  lucide.createIcons();
+  const personHours = countedPersonHours(state.scheduleRows);
   const targetHours = Math.max(0.5, Number(document.getElementById("person-days").value || 1)) * 8;
   const summary = document.getElementById("hours-summary");
   if (Math.abs(personHours - targetHours) > 0.25) warnings.push(`已排 ${(personHours / 8).toFixed(2)} 人日，与目标 ${(targetHours / 8).toFixed(2)} 人日不一致，请调整人员或时间。`);
@@ -1877,9 +1840,10 @@ function setStageFieldsFromImportedPlan(plan, phaseId) {
   if (project[`${prefix}_person_days`]) {
     document.getElementById("person-days").value = String(Number(project[`${prefix}_person_days`]));
   } else {
-    const minutes = buildSegments().reduce((sum, segment) => sum + segment.absEnd - segment.absStart, 0);
+    const meetings = buildMeetingPlan().meetings;
+    const minutes = buildSegments(meetings).reduce((sum, segment) => sum + segment.absEnd - segment.absStart, 0);
     const auditorCount = state.auditors.filter(isIndependentAuditor).length;
-    document.getElementById("person-days").value = ((minutes / 60 + 1.5) * auditorCount / 8).toFixed(2);
+    document.getElementById("person-days").value = ((minutes / 60 * auditorCount + countedPersonHours(meetings)) / 8).toFixed(2);
   }
   if (project[`${prefix}_audit_type`]) document.getElementById("audit-type").value = valueToString(project[`${prefix}_audit_type`]);
 }
@@ -2049,6 +2013,19 @@ document.addEventListener("drop", async (event) => {
 makeDropArea(document.getElementById("unassigned-clauses"));
 document.getElementById("btn-suggest").addEventListener("click", resetSuggestedAssignments);
 document.getElementById("btn-schedule").addEventListener("click", generateSchedule);
+document.getElementById("schedule-body").addEventListener("change", event => {
+  const key = event.target.dataset.meetingKey;
+  if (!key) return;
+  if (event.target.value) state.meetingOverrides[key] = event.target.value;
+  else delete state.meetingOverrides[key];
+  generateSchedule();
+});
+document.getElementById("schedule-body").addEventListener("click", event => {
+  const button = event.target.closest("[data-reset-meeting]");
+  if (!button) return;
+  delete state.meetingOverrides[button.dataset.resetMeeting];
+  generateSchedule();
+});
 document.getElementById("btn-preview").addEventListener("click", openPlanPreview);
 document.getElementById("btn-preview-close").addEventListener("click", () => document.getElementById("plan-preview").close());
 document.getElementById("plan-preview").addEventListener("close", () => document.body.classList.remove("preview-open"));
