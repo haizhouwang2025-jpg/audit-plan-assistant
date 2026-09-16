@@ -86,7 +86,7 @@ button {
 
 .rail-logo img { width: 100%; height: 100%; object-fit: contain; }
 .mobile-brand-logo { display: none; }
-.brand-name { color: var(--primary); font-size: 13px; font-weight: 600; }
+.brand-name { color: var(--primary); font-weight: 600; }
 [hidden] { display: none !important; }
 input[type="checkbox"] { accent-color: var(--primary); }
 
@@ -164,21 +164,8 @@ input[type="checkbox"] { accent-color: var(--primary); }
   backdrop-filter: blur(16px);
 }
 
-.eyebrow {
-  margin: 0 0 10px;
-  color: var(--muted);
-  font-weight: 500;
-}
-
-.eyebrow span {
-  color: var(--muted);
-  margin: 0 8px;
-}
-
-.eyebrow #profile-breadcrumb { margin: 0; }
-
 .title-stack {
-  min-width: 250px;
+  min-width: 0;
 }
 
 .title-row {
@@ -186,6 +173,9 @@ input[type="checkbox"] { accent-color: var(--primary); }
   align-items: center;
   gap: 10px;
 }
+
+.title-row h1 { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.title-row h1 > span { white-space: nowrap; }
 
 .info-dot {
   display: inline-grid;
@@ -476,6 +466,22 @@ h2 {
 .compact-notice .form-grid {
   margin-top: 10px;
 }
+
+.import-panel { border-style: dashed; border-color: var(--line-strong); }
+.import-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 16px; }
+.import-trigger { display: flex; align-items: center; gap: 12px; flex: 1 1 230px; min-width: 0; min-height: 44px; padding: 0; border: 0; border-radius: 4px; background: transparent; color: var(--primary); text-align: left; font-size: 15px; font-weight: 600; cursor: pointer; }
+.import-trigger > .lucide { width: 22px; height: 22px; flex-shrink: 0; }
+.import-trigger:hover { color: var(--primary-strong); }
+.import-trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
+.import-trigger:disabled { opacity: 0.6; cursor: wait; }
+.import-status { max-width: 100%; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.import-panel[data-status="error"] .import-status { color: var(--red); }
+.import-panel[data-status="success"] .import-status { color: var(--green); }
+.import-panel .compact-notice summary { min-height: 32px; }
+.import-panel .compact-notice summary > .tag { gap: 4px; }
+.import-panel .compact-notice summary .lucide { width: 14px; height: 14px; }
+.import-panel .compact-notice[open] summary > .tag .lucide { transform: rotate(180deg); }
+.file-drag-over .import-panel { background: var(--primary-soft); border-color: var(--primary); }
 
 .plan-output {
   display: flex;
@@ -826,8 +832,8 @@ textarea {
 
 @media (max-width: 760px) {
   .app-rail, .search-box { display: none; }
-  .eyebrow { display: flex; align-items: center; }
-  .mobile-brand-logo { display: inline-block; width: 28px; height: 28px; object-fit: contain; margin-right: 6px; }
+  .mobile-brand-logo { display: inline-block; width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
+  .title-row h1 { font-size: 18px; }
   .app-shell { grid-template-columns: minmax(0, 1fr); }
   .command-strip { display: flex; flex-direction: column; align-items: stretch; }
   .top-actions { flex-wrap: wrap; }

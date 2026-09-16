@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#b21e35">
-  <title>审核计划辅助系统</title>
-  <link rel="stylesheet" href="styles.css?v=20260916-project-label">
+  <title>海德认证 审核计划辅助系统</title>
+  <link rel="stylesheet" href="styles.css?v=20260916-excel-drop">
   <link rel="icon" href="assets/head-certification-logo.png" type="image/png">
 </head>
 <body>
@@ -27,10 +27,9 @@
     <div class="app-main">
       <header class="topbar">
         <div class="title-stack">
-          <p class="eyebrow"><img class="mobile-brand-logo" src="assets/head-certification-logo.png" alt=""><strong class="brand-name">海德认证</strong><span aria-hidden="true">/</span><span id="profile-breadcrumb">管理体系审核</span></p>
           <div class="title-row">
-            <h1>审核计划辅助系统</h1>
-            <span class="info-dot" aria-label="说明">?</span>
+            <img class="mobile-brand-logo" src="assets/head-certification-logo.png" alt="">
+            <h1><span class="brand-name">海德认证</span> <span>审核计划辅助系统</span></h1>
           </div>
         </div>
         <div class="header-tools">
@@ -47,17 +46,21 @@
 
       <main class="workspace">
         <section class="command-strip">
-          <details class="notice-panel compact-notice">
+          <section id="plan-file-dropzone" class="notice-panel import-panel" aria-label="加载实施计划表格" aria-busy="false">
+            <input id="notice-file" type="file" accept=".xlsx,.pdf,.txt" hidden>
+            <div class="import-header">
+              <button id="btn-import" class="import-trigger" type="button" title="拖入 Excel 表格，或点击选择文件" aria-label="加载实施计划表格，支持拖入 Excel 或点击选择"><i data-lucide="upload" aria-hidden="true"></i><span>加载实施计划表格</span></button>
+              <span id="import-status" class="import-status" role="status" hidden></span>
+            </div>
+          <details class="compact-notice">
             <summary>
               <span>
-                <span class="notice-icon"><i data-lucide="clipboard-list" aria-hidden="true"></i></span>
                 <span>
-                  <strong>参考文件信息</strong>
-                  <span id="notice-summary">示例企业（演示） / 初次认证第二阶段 / 2 天 / 4.0 人日</span>
+                  <span id="notice-summary">Excel · .xlsx</span>
                   <span id="system-profile" class="system-profile" aria-label="项目体系组合"></span>
                 </span>
               </span>
-              <span class="tag">展开编辑⌄</span>
+              <span class="tag">项目信息<i data-lucide="chevron-down" aria-hidden="true"></i></span>
             </summary>
             <div class="form-grid">
               <label>
@@ -110,9 +113,8 @@
               </label>
             </div>
           </details>
+          </section>
           <div class="top-actions">
-            <input id="notice-file" type="file" accept=".xlsx,.pdf,.txt" hidden>
-            <button id="btn-import" class="btn btn-import" type="button"><i data-lucide="upload" aria-hidden="true"></i><span>导入参考文件</span></button>
             <button id="btn-suggest" class="btn" type="button"><i data-lucide="rotate-ccw" aria-hidden="true"></i>重置建议</button>
             <button id="btn-schedule" class="btn btn-primary" type="button"><i data-lucide="calendar-days" aria-hidden="true"></i>生成日程</button>
             <button id="btn-preview" class="btn" type="button" aria-haspopup="dialog" aria-controls="plan-preview"><i data-lucide="eye" aria-hidden="true"></i>预览</button>
@@ -261,6 +263,6 @@
   <script src="haide-template.js"></script>
   <script src="haide-plan.js?v=20260916-word-card"></script>
   <script src="audit-rules.js"></script>
-  <script src="app.js?v=20260916-project-label"></script>
+  <script src="app.js?v=20260916-excel-drop"></script>
 </body>
 </html>

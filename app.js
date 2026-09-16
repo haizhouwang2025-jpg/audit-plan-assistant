@@ -216,6 +216,7 @@ function getSystemBadgesHtml() {
 function renderSystemProfile() {
   const profile = document.getElementById("system-profile");
   if (!profile) return;
+  profile.hidden = !state.importedPlan && !state.importedFileName;
   profile.innerHTML = `
     <span class="system-context">${state.importedPlan || state.importedFileName ? "当前项目" : "示例项目"}</span>
     <span class="system-mode">${escapeHtml(getSystemProfileLabel())}</span>
@@ -514,6 +515,10 @@ function createClauseTile(clause, deptId) {
 }
 
 function updateNoticeSummary() {
+  if (!state.importedPlan && !state.importedFileName) {
+    document.getElementById("notice-summary").textContent = "Excel · .xlsx";
+    return;
+  }
   const company = document.getElementById("company").value.trim() || "未填写企业";
   const auditType = document.getElementById("audit-type").value;
   const days = document.getElementById("audit-days").value || "0";
@@ -1751,7 +1756,7 @@ function prepareImportedPlan(plan) {
   const emsSource = valueToString(plan.project.ems_version || plan.project.standard_e);
   plan.emsVersion = /2015/.test(emsSource) ? "2015" : "2026";
   clauseLibrary = buildQesLibrary(qmsClauseLibrary, plan.emsVersion);
-  if (systems.includes("EMS") && !emsSource) plan.notes.push("环境体系按已约定的 ISO 14001:2026 编排；可在参考文件信息中切换版本。");
+  if (systems.includes("EMS") && !emsSource) plan.notes.push("环境体系按已约定的 ISO 14001:2026 编排；可在项目信息中切换版本。");
   const has29 = yesNoToBoolean(plan.project.has_29_scope) || /(^|\D)29(?:\.|\b)/.test(valueToString(plan.project.industry_code || plan.project.scope_q));
   const merged = new Map();
   const seenIds = new Set();
@@ -1928,7 +1933,7 @@ function buildWorkbookFindings(plan) {
   if (!professionalCount) {
     findings.push("导入表未确认专业审核员，核心专业条款会出现风险提示。");
   }
-  if (!plan.project.stage2_person_days) findings.push("表内未提供批准的审核人日，当前按时段和可独立主审人数暂估，请在参考文件信息中确认。");
+  if (!plan.project.stage2_person_days) findings.push("表内未提供批准的审核人日，当前按时段和可独立主审人数暂估，请在项目信息中确认。");
   if (!plan.project.stage1_start_date) findings.push("表内未提供一阶段日期，一阶段为待确认草案。");
   if (plan.auditors.some((auditor) => ["技术专家", "实习"].includes(auditor.role))) findings.push("技术专家安排共同审核；实习人员不独立主审，两者均不计入审核人日。");
   return findings;
@@ -1963,21 +1968,33 @@ function render() {
   renderProfessionalStrategy();
 }
 
+function setImportStatus(text, status) {
+  const loading = status === "loading";
+  const panel = document.getElementById("plan-file-dropzone");
+  panel.setAttribute("aria-busy", String(loading));
+  panel.dataset.status = status;
+  const message = document.getElementById("import-status");
+  message.hidden = false;
+  message.textContent = text;
+  document.getElementById("btn-import").disabled = loading;
+  document.getElementById("notice-file").disabled = loading;
+}
+
 async function handleNoticeImport(event) {
   const file = event.target.files?.[0];
-  if (!file) return;
+  if (!file || importingFile) return;
+  importingFile = true;
   const backup = { state: structuredClone(state), presets: structuredClone(phasePresets), fields: Object.fromEntries([...phaseFieldIds, "company", "scope", "ems-version"].map((id) => [id, document.getElementById(id).value])) };
   state.importedFileName = file.name;
   const importButton = document.getElementById("btn-import");
-  importButton.querySelector("span").textContent = "解析中...";
-  importButton.title = file.name;
+  setImportStatus("解析中...", "loading");
 
   try {
     if (file.name.toLowerCase().endsWith(".xlsx")) {
       const plan = await parseAuditPlanWorkbook(file);
       applyImportedPlan(plan);
       state.importFindings = buildWorkbookFindings(state.importedPlan);
-      importButton.querySelector("span").textContent = "已导入参考文件";
+      setImportStatus("已加载表格", "success");
       render();
       generateSchedule();
       return;
@@ -1989,7 +2006,7 @@ async function handleNoticeImport(event) {
     applyPhasePreset(phaseId);
     applyParsedNotice(parsed);
     state.importFindings = buildImportFindings(parsed, file);
-    importButton.querySelector("span").textContent = /\.(xls|xlsx)$/i.test(file.name) ? "已接收参考文件" : "已导入参考文件";
+    setImportStatus("已加载表格", "success");
     render();
     generateSchedule();
   } catch (error) {
@@ -1999,11 +2016,15 @@ async function handleNoticeImport(event) {
     clauseLibrary = buildQesLibrary(qmsClauseLibrary, state.emsVersion);
     Object.entries(backup.fields).forEach(([id, value]) => { document.getElementById(id).value = value; });
     state.importFindings = [`读取失败：${error.message || "无法解析该文件"}。已保留原计划。`, ...state.importFindings];
-    importButton.querySelector("span").textContent = "导入失败";
+    setImportStatus("导入失败，原计划已保留", "error");
     render();
     generateSchedule();
   } finally {
     event.target.value = "";
+    importingFile = false;
+    importButton.disabled = false;
+    document.getElementById("notice-file").disabled = false;
+    document.getElementById("plan-file-dropzone").setAttribute("aria-busy", "false");
   }
 }
 
@@ -2023,10 +2044,7 @@ document.addEventListener("drop", async (event) => {
   if (!event.dataTransfer.files.length) return;
   event.preventDefault();
   document.body.classList.remove("file-drag-over");
-  if (importingFile) return;
-  importingFile = true;
-  try { await handleNoticeImport({ target: { files: [event.dataTransfer.files[0]], value: "" } }); }
-  finally { importingFile = false; }
+  await handleNoticeImport({ target: { files: [event.dataTransfer.files[0]], value: "" } });
 });
 makeDropArea(document.getElementById("unassigned-clauses"));
 document.getElementById("btn-suggest").addEventListener("click", resetSuggestedAssignments);
