@@ -910,7 +910,9 @@ function clauseText(clauses) {
 function processText(deptName, clauses) {
   const scope = document.getElementById("scope").value.trim();
   const titles = uniqueList(clauses.map((clause) => clause.title)).join("；");
-  return `${deptName}${state.activePhase === "stage1" ? "（文件、现场及二阶段准备度确认）" : ""}：${titles}。涉及范围：${scope || "按认证范围确认"}`;
+  const dept = state.departments.find((item) => item.name === deptName);
+  const extra = [dept?.manager ? `负责人：${dept.manager}` : "", dept?.site ? `审核场所：${dept.site}` : "", dept?.processNotes].filter(Boolean).join("\n");
+  return `${deptName}${state.activePhase === "stage1" ? "（文件、现场及二阶段准备度确认）" : ""}：${titles}。涉及范围：${scope || "按认证范围确认"}${extra ? "\n" + extra : ""}`;
 }
 
 function getShiftAssignment() {
@@ -1078,34 +1080,12 @@ function renderSchedule(warnings = []) {
 function preparePlanPreview() {
   renderDiagnostics();
   generateSchedule();
-  const value = (id) => document.getElementById(id).value.trim();
-  const startDate = value("start-date");
-  const dateRange = startDate ? `${startDate} 至 ${addDays(startDate, scheduleWindow().days - 1)}` : "待确认";
-  const metadata = [
-    ["受审核方", value("company") || "待填写"],
-    ["审核类型", value("audit-type")],
-    ["管理体系", state.systems.map((system) => systemCatalog[system]?.name || system).join(" / ")],
-    ["审核日期", dateRange],
-    ["审核人日（已排 / 目标）", document.getElementById("hours-summary").textContent],
-    ["认证范围", value("scope") || "待确认"],
-    ["审核组", getAuditorDisplay(state.auditors.map((auditor) => auditor.id)) || "待安排"]
-  ];
-  const warnings = uniqueList([...document.querySelectorAll("#issues-list .bad, #issues-list .warn")].map((item) => item.textContent));
-  const table = document.querySelector(".schedule-table").cloneNode(true);
-  table.className = "plan-table";
-  table.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
-  table.querySelectorAll("th").forEach((element) => element.setAttribute("scope", "col"));
-  document.getElementById("preview-content").innerHTML = `
-    <article class="plan-document">
-      <header class="plan-document-heading">
-        <p>${escapeHtml(document.getElementById("active-phase-label").textContent)}</p>
-        <h1>管理体系认证审核计划</h1>
-      </header>
-      <dl class="plan-metadata">${metadata.map(([label, text]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(text)}</dd></div>`).join("")}</dl>
-      ${warnings.length ? `<section class="plan-warnings"><h2>待确认事项</h2><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul></section>` : ""}
-      <h2 class="plan-section-title">审核日程</h2>
-      ${table.outerHTML}
-    </article>`;
+  const model = buildHaidePlanModel();
+  window.currentHaidePlan = model;
+  document.getElementById("preview-content").innerHTML = renderHaidePlan(model);
+  const word = document.getElementById("btn-preview-word");
+  word.disabled = model.warnings.length > 0;
+  word.title = model.warnings.length ? "请先补齐预览中的待确认事项" : "下载海德标准格式 Word 审核计划";
   syncPrintContent();
 }
 
@@ -1399,7 +1379,7 @@ function parseProjectRows(rows) {
 function findSectionRows(rows, sectionName) {
   const sectionIndex = rows.findIndex((row) => valueToString(row?.[0]) === sectionName);
   if (sectionIndex < 0) return [];
-  const sectionNames = new Set(["PROJECT", "DEPARTMENTS", "AUDITORS", "PROCESS_RULES", "IMPORT_NOTES"]);
+  const sectionNames = new Set(["PROJECT", "DEPARTMENTS", "AUDITORS", "PROCESS_RULES", "IMPORT_NOTES", "PLAN_DETAILS", "AUDITOR_DETAILS", "PROCESS_DETAILS"]);
   let endIndex = rows.length;
   for (let index = sectionIndex + 2; index < rows.length; index += 1) {
     if (sectionNames.has(valueToString(rows[index]?.[0]))) {
@@ -1436,6 +1416,11 @@ function uniqueList(items) {
 
 function parseMachineReadSheet(rows) {
   const project = parseProjectRows(findSectionRows(rows, "PROJECT"));
+  const details = parseProjectRows(findSectionRows(rows, "PLAN_DETAILS"));
+  Object.assign(project, Object.fromEntries(Object.entries(details).filter(([, value]) => valueToString(value))));
+  if (details.criteria_e) project.ems_version = /2015/.test(details.criteria_e) ? "2015" : /2026/.test(details.criteria_e) ? "2026" : project.ems_version;
+  const auditorDetails = new Map(rowsToObjects(findSectionRows(rows, "AUDITOR_DETAILS")).map((row) => [valueToString(row["审核员ID"]), row]));
+  const processDetails = new Map(rowsToObjects(findSectionRows(rows, "PROCESS_DETAILS")).map((row) => [valueToString(row["部门ID"]), row]));
   if (project.audit_type && !project.stage2_audit_type) {
     project.stage2_audit_type = project.audit_type;
   }
@@ -1455,7 +1440,9 @@ function parseMachineReadSheet(rows) {
       name: actualName || valueToString(row["显示部门名称"]),
       actualName,
       category: valueToString(row["专业触发规则"]),
-      manager: "",
+      manager: valueToString(processDetails.get(id)?.["负责人"]),
+      site: valueToString(processDetails.get(id)?.["审核场所"]),
+      processNotes: valueToString(processDetails.get(id)?.["过程补充说明"]),
       process: valueToString(row["过程类型"]),
       auditorIds: splitList(row["建议审核员ID"]),
       clauseIds: [],
@@ -1471,6 +1458,10 @@ function parseMachineReadSheet(rows) {
     professional: yesNoToBoolean(row["是否具备本项目专业能力"]),
     status: yesNoToBoolean(row["是否实习"]) ? "实习" : valueToString(row["级别"]),
     independent: yesNoToBoolean(row["默认可独立主审"]),
+    registration: valueToString(auditorDetails.get(valueToString(row["审核员ID"]))?.["注册证书号"]),
+    employer: valueToString(auditorDetails.get(valueToString(row["审核员ID"]))?.["工作单位"]),
+    fullTime: valueToString(auditorDetails.get(valueToString(row["审核员ID"]))?.["是否专职"]),
+    phone: valueToString(auditorDetails.get(valueToString(row["审核员ID"]))?.["联系电话"]),
     professionalCodes: Object.fromEntries(["QMS", "EMS", "OHSMS"].map((system) => [system, valueToString(row[`${system}专业小类`])]))
   })).filter((auditor) => auditor.id && auditor.name);
 
@@ -1735,6 +1726,7 @@ function prepareImportedPlan(plan) {
     dept.processes = uniqueList([...dept.processes, processKey]);
     dept.processLabels = uniqueList([...dept.processLabels, source.process]);
     dept.auditorIds = uniqueList([...dept.auditorIds, ...source.auditorIds]);
+    for (const field of ["manager", "site", "processNotes"]) dept[field] = uniqueList([dept[field], source[field]]).join("；");
   });
   plan.sourceDepartmentCount = plan.departments.length;
   plan.departments = [...merged.values()];
@@ -1795,7 +1787,7 @@ function applyImportedPlanToPreset(plan, phaseId, prefix) {
   const days = Number(plan.project[`${prefix}_days`]) || (start && end ? Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1 : 0);
   const personDays = Number(plan.project[`${prefix}_person_days`]);
   if (days) preset.auditDays = days;
-  if (personDays) preset.personDays = personDays.toFixed(1);
+  if (personDays) preset.personDays = String(personDays);
   if (plan.project[`${prefix}_audit_type`]) preset.auditType = valueToString(plan.project[`${prefix}_audit_type`]);
 }
 
@@ -1808,14 +1800,14 @@ function setStageFieldsFromImportedPlan(plan, phaseId) {
   document.getElementById("audit-end-time").value = importedTime(project[`${prefix}_end_time`]) || "17:00";
   document.getElementById("lunch-hours").value = parseFloat(project.lunch_hours) || 1;
   document.getElementById("shift-hours").value = phaseId === "stage2" ? parseFloat(project.shift_audit_hours) || 0 : 0;
-  document.getElementById("shift-date").value = "";
-  document.getElementById("shift-start").value = "";
+  document.getElementById("shift-date").value = phaseId === "stage2" ? valueToString(project.shift_date) : "";
+  document.getElementById("shift-start").value = phaseId === "stage2" ? importedTime(project.shift_start) : "";
   const start = project[`${prefix}_start_date`];
   const end = project[`${prefix}_end_date`];
   if (start && end) document.getElementById("audit-days").value = Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1;
   if (project[`${prefix}_days`]) document.getElementById("audit-days").value = valueToString(project[`${prefix}_days`]);
   if (project[`${prefix}_person_days`]) {
-    document.getElementById("person-days").value = Number(project[`${prefix}_person_days`]).toFixed(1);
+    document.getElementById("person-days").value = String(Number(project[`${prefix}_person_days`]));
   } else {
     const minutes = buildSegments().reduce((sum, segment) => sum + segment.absEnd - segment.absStart, 0);
     const auditorCount = state.auditors.filter(isIndependentAuditor).length;
@@ -1833,7 +1825,8 @@ function applyImportedPlan(plan) {
   state.systems = normalizeSystemCodes(plan.project.audit_systems);
   document.getElementById("company").value = valueToString(plan.project.company_name);
   document.getElementById("scope").value = state.systems.map((system) => {
-    const value = plan.project[{ QMS: "scope_q", EMS: "scope_e", OHSMS: "scope_s" }[system]];
+    const suffix = { QMS: "q", EMS: "e", OHSMS: "s" }[system];
+    const value = plan.project[`scope_text_${suffix}`] || plan.project[`scope_${suffix}`];
     return value ? `${systemCatalog[system]?.code}: ${value}` : "";
   }).filter(Boolean).join("\n");
   state.phaseDrafts = {};
@@ -1980,6 +1973,7 @@ document.getElementById("btn-preview-close").addEventListener("click", () => doc
 document.getElementById("plan-preview").addEventListener("close", () => document.body.classList.remove("preview-open"));
 document.getElementById("btn-print").addEventListener("click", printPlan);
 document.getElementById("btn-preview-print").addEventListener("click", printPlan);
+document.getElementById("btn-preview-word").addEventListener("click", downloadHaideWord);
 window.addEventListener("beforeprint", preparePlanPrint);
 document.getElementById("btn-add-dept").addEventListener("click", addDepartment);
 document.getElementById("btn-add-auditor").addEventListener("click", addAuditor);

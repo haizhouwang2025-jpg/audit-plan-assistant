@@ -1,5 +1,16 @@
 # Third-Party Notices
 
+## JSZip
+
+- Version: 3.10.1
+- Project: https://github.com/Stuk/jszip
+- Distributed under the MIT license option. Full notice: `vendor/jszip/LICENSE.markdown`.
+- Used for local generation of Word documents; it does not upload project data.
+
+## Haide Form
+
+The institution logo and form layout are retained from the user-supplied reference. They are not covered by the third-party software licenses. The embedded template contains no source-enterprise information, signatures or seals.
+
 ## PDF.js
 
 - Version: 5.6.205

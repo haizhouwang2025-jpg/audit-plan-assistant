@@ -503,6 +503,7 @@ h2 {
   box-shadow: 0 5px 16px rgba(23, 35, 52, 0.10);
   transform: translateY(-1px);
 }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .btn-primary {
   border-color: var(--primary);
@@ -1198,7 +1199,7 @@ body.preview-open { overflow: hidden; }
 .preview-format { color: var(--muted); font-size: 12px; }
 .preview-actions .btn { white-space: nowrap; }
 .preview-scroll { min-height: 0; overflow: auto; padding: 24px; }
-#preview-content { width: 273mm; margin: 0 auto; }
+#preview-content { width: 210mm; margin: 0 auto; }
 .plan-document {
   padding: 10mm;
   min-height: 186mm;
@@ -1240,7 +1241,54 @@ body.preview-open { overflow: hidden; }
   .preview-actions .btn { padding: 0 12px; }
 }
 
-@page { size: A4 landscape; margin: 12mm; }
+.haide-document { font-family: SimSun, "宋体", serif; font-size: 10.5pt; line-height: 1.7; color: #000; background: #fff; padding: 14mm; overflow-wrap: anywhere; }
+.haide-letterhead { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #000; padding-bottom: 4px; margin-bottom: 14px; }
+.haide-letterhead img { width: 80.2pt; height: 26.5pt; object-fit: contain; }
+.haide-company { text-align: center; font-size: 12pt; }
+.haide-document h1 { font-family: SimHei, "黑体", sans-serif; text-align: center; font-size: 15pt; font-weight: 700; margin: 6px 0 20px; }
+.haide-document h2 { font-size: 12pt; font-weight: 700; margin: 10px 0; break-after: avoid; }
+.haide-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.haide-table th, .haide-table td { border: 1px solid #000; padding: 5px; vertical-align: middle; white-space: pre-line; font-weight: 400; }
+.haide-table th { text-align: center; }
+.haide-table p { margin-bottom: 6px; }
+.haide-basic th:first-child { width: 18%; }
+.haide-details th:first-child { width: 14%; }
+.haide-team th:nth-child(1) { width: 5%; }
+.haide-team th:nth-child(2) { width: 9%; }
+.haide-team th:nth-child(3) { width: 12%; }
+.haide-team th:nth-child(4) { width: 20%; }
+.haide-team th:nth-child(5) { width: 22%; }
+.haide-team th:nth-child(6) { width: 8%; }
+.haide-team th:nth-child(7) { width: 8%; }
+.haide-team th:nth-child(8) { width: 16%; }
+.haide-sign { height: 34px; }
+.haide-schedule-title { text-align: center; break-before: page; }
+.haide-schedule th:nth-child(1) { width: 11%; }
+.haide-schedule th:nth-child(2) { width: 13%; }
+.haide-schedule th:nth-child(3) { width: 66%; }
+.haide-schedule th:nth-child(4) { width: 10%; }
+.haide-schedule td:not(:nth-child(3)) { text-align: center; }
+.haide-schedule thead { display: table-header-group; }
+.haide-schedule tr { break-inside: avoid; }
+.haide-schedule small { font-size: 9pt; }
+.haide-notes { white-space: pre-line; margin-top: 10px; }
+.haide-footer { border-top: 1px solid #000; margin-top: 18px; font-size: 9pt; }
+.haide-check { margin: 12px 0; border: 1px solid #c17933; background: #fff8e8; padding: 8px 12px; }
+.haide-check h2 { font-size: 11pt; margin: 0; }
+.haide-check ul { margin: 4px 0; padding-left: 18px; }
+
+@page {
+  size: A4 portrait;
+  margin: 18mm 14mm;
+  @top-left { content: "海德认证"; font: 9pt SimSun; }
+  @top-right { content: "文件编号：OP-01-05-H/8"; font: 9pt SimSun; }
+  @bottom-left { content: "实施日期：2026-3-1"; font: 9pt SimSun; }
+  @bottom-right { content: "第" counter(page) "页 共" counter(pages) "页"; font: 9pt SimSun; }
+}
+@page :first {
+  @top-left { content: none; }
+  @top-right { content: none; }
+}
 @media print {
   html, body, body.preview-open { background: #fff; overflow: visible; height: auto; }
   .app-shell, .plan-preview, .plan-preview[open] { display: none !important; }
@@ -1248,4 +1296,7 @@ body.preview-open { overflow: hidden; }
   #print-content { display: block; }
   .plan-document { padding: 10mm; min-height: 0; }
   .plan-document * { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .haide-document { padding: 0; }
+  .haide-letterhead { margin-bottom: 12px; }
+  .haide-footer { display: none; }
 }

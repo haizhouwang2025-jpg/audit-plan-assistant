@@ -6,6 +6,9 @@
 !/index.html
 !/app.js
 !/audit-rules.js
+!/haide-fields.js
+!/haide-template.js
+!/haide-plan.js
 !/styles.css
 !/README.md
 !/THIRD_PARTY_NOTICES.md
@@ -27,4 +30,3 @@ output/
 outputs/
 _source_extract/
 _sample_extract/
-

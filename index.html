@@ -70,6 +70,10 @@
                   <option>监督审核</option>
                   <option>再认证审核</option>
                   <option>特殊审核</option>
+                  <option>专项审核</option>
+                  <option>短通审核</option>
+                  <option>补充审核</option>
+                  <option>转换前现场访问</option>
                 </select>
               </label>
               <label>
@@ -225,10 +229,11 @@
     <header class="preview-toolbar">
       <div class="preview-heading">
         <h2 id="preview-title">审核计划预览</h2>
-        <span class="preview-format">A4 横向</span>
+        <span class="preview-format">海德标准表 · A4 纵向</span>
       </div>
       <div class="preview-actions">
         <button id="btn-preview-close" class="btn" type="button" autofocus>返回编辑</button>
+        <button id="btn-preview-word" class="btn" type="button">导出 Word</button>
         <button id="btn-preview-print" class="btn btn-primary" type="button">打印</button>
       </div>
     </header>
@@ -238,6 +243,10 @@
   </dialog>
   <div id="print-content" aria-hidden="true"></div>
 
+  <script src="vendor/jszip/jszip.min.js"></script>
+  <script src="haide-fields.js"></script>
+  <script src="haide-template.js"></script>
+  <script src="haide-plan.js"></script>
   <script src="audit-rules.js"></script>
   <script src="app.js"></script>
 </body>
