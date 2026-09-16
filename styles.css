@@ -361,9 +361,18 @@ h2 {
 
 .compact-notice summary > span:first-child {
   display: flex;
+  flex: 1;
   align-items: center;
   gap: 14px;
   min-width: 0;
+}
+
+.compact-notice summary > span:first-child > span:last-child {
+  min-width: 0;
+}
+
+.compact-notice summary > .tag {
+  flex-shrink: 0;
 }
 
 .compact-notice strong {
