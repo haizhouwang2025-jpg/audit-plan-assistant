@@ -1075,6 +1075,64 @@ function renderSchedule(warnings = []) {
   }
 }
 
+function preparePlanPreview() {
+  renderDiagnostics();
+  generateSchedule();
+  const value = (id) => document.getElementById(id).value.trim();
+  const startDate = value("start-date");
+  const dateRange = startDate ? `${startDate} 至 ${addDays(startDate, scheduleWindow().days - 1)}` : "待确认";
+  const metadata = [
+    ["受审核方", value("company") || "待填写"],
+    ["审核类型", value("audit-type")],
+    ["管理体系", state.systems.map((system) => systemCatalog[system]?.name || system).join(" / ")],
+    ["审核日期", dateRange],
+    ["审核人日（已排 / 目标）", document.getElementById("hours-summary").textContent],
+    ["认证范围", value("scope") || "待确认"],
+    ["审核组", getAuditorDisplay(state.auditors.map((auditor) => auditor.id)) || "待安排"]
+  ];
+  const warnings = uniqueList([...document.querySelectorAll("#issues-list .bad, #issues-list .warn")].map((item) => item.textContent));
+  const table = document.querySelector(".schedule-table").cloneNode(true);
+  table.className = "plan-table";
+  table.querySelectorAll("[id]").forEach((element) => element.removeAttribute("id"));
+  table.querySelectorAll("th").forEach((element) => element.setAttribute("scope", "col"));
+  document.getElementById("preview-content").innerHTML = `
+    <article class="plan-document">
+      <header class="plan-document-heading">
+        <p>${escapeHtml(document.getElementById("active-phase-label").textContent)}</p>
+        <h1>管理体系认证审核计划</h1>
+      </header>
+      <dl class="plan-metadata">${metadata.map(([label, text]) => `<div><dt>${escapeHtml(label)}</dt><dd>${escapeHtml(text)}</dd></div>`).join("")}</dl>
+      ${warnings.length ? `<section class="plan-warnings"><h2>待确认事项</h2><ul>${warnings.map((warning) => `<li>${escapeHtml(warning)}</li>`).join("")}</ul></section>` : ""}
+      <h2 class="plan-section-title">审核日程</h2>
+      ${table.outerHTML}
+    </article>`;
+  syncPrintContent();
+}
+
+function syncPrintContent() {
+  document.getElementById("print-content").innerHTML = document.getElementById("preview-content").innerHTML;
+}
+
+function openPlanPreview() {
+  preparePlanPreview();
+  const dialog = document.getElementById("plan-preview");
+  if (!dialog.open) dialog.showModal();
+  document.body.classList.add("preview-open");
+  document.getElementById("preview-scroll").scrollTop = 0;
+  document.getElementById("preview-scroll").scrollLeft = 0;
+}
+
+function preparePlanPrint() {
+  // Keep an open preview and its printed document identical, including warnings.
+  if (document.getElementById("plan-preview").open) syncPrintContent();
+  else preparePlanPreview();
+}
+
+function printPlan() {
+  preparePlanPrint();
+  window.print();
+}
+
 function normalizeNoticeText(text) {
   return text
     .replace(/\u00a0/g, " ")
@@ -1917,7 +1975,12 @@ document.addEventListener("drop", async (event) => {
 makeDropArea(document.getElementById("unassigned-clauses"));
 document.getElementById("btn-suggest").addEventListener("click", resetSuggestedAssignments);
 document.getElementById("btn-schedule").addEventListener("click", generateSchedule);
-document.getElementById("btn-print").addEventListener("click", () => window.print());
+document.getElementById("btn-preview").addEventListener("click", openPlanPreview);
+document.getElementById("btn-preview-close").addEventListener("click", () => document.getElementById("plan-preview").close());
+document.getElementById("plan-preview").addEventListener("close", () => document.body.classList.remove("preview-open"));
+document.getElementById("btn-print").addEventListener("click", printPlan);
+document.getElementById("btn-preview-print").addEventListener("click", printPlan);
+window.addEventListener("beforeprint", preparePlanPrint);
 document.getElementById("btn-add-dept").addEventListener("click", addDepartment);
 document.getElementById("btn-add-auditor").addEventListener("click", addAuditor);
 document.getElementById("new-dept-name").addEventListener("keydown", (event) => {
