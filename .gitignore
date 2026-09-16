@@ -1,0 +1,30 @@
+# Only publish the application and its bundled runtime dependencies.
+/*
+!/.gitignore
+!/.gitattributes
+!/.nojekyll
+!/index.html
+!/app.js
+!/audit-rules.js
+!/styles.css
+!/README.md
+!/THIRD_PARTY_NOTICES.md
+!/vendor/
+
+# Never add project inputs, generated records, or credentials.
+*.xlsx
+*.xls
+*.doc
+*.docx
+*.pdf
+*.zip
+*.png
+*.jpg
+*.log
+.env*
+node_modules/
+output/
+outputs/
+_source_extract/
+_sample_extract/
+

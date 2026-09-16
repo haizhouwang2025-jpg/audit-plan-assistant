@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>审核计划辅助系统</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="app-rail" aria-label="主导航">
+      <div class="rail-logo">QMS</div>
+      <nav class="rail-nav" aria-label="模块导航">
+        <button class="rail-item is-active" type="button" aria-label="首页">⌂</button>
+        <button class="rail-item" type="button" aria-label="计划">□</button>
+        <button class="rail-item" type="button" aria-label="文档">▤</button>
+        <button class="rail-item" type="button" aria-label="审核">◇</button>
+        <button class="rail-item" type="button" aria-label="人员">○</button>
+        <button class="rail-item" type="button" aria-label="统计">↗</button>
+        <button class="rail-item" type="button" aria-label="设置">⚙</button>
+      </nav>
+      <button class="rail-collapse" type="button" aria-label="收起导航">›</button>
+    </aside>
+
+    <div class="app-main">
+      <header class="topbar">
+        <div class="title-stack">
+          <p class="eyebrow"><span id="profile-breadcrumb">单Q版</span> <span>›</span> 审核计划管理</p>
+          <div class="title-row">
+            <h1>审核计划辅助系统</h1>
+            <span class="info-dot" aria-label="说明">?</span>
+          </div>
+        </div>
+        <div class="header-tools">
+          <label class="search-box" aria-label="搜索">
+            <span>⌕</span>
+            <input type="search" placeholder="搜索项目、部门或条款...">
+            <kbd>⌘ K</kbd>
+          </label>
+          <button class="icon-button has-dot" type="button" aria-label="通知">!</button>
+          <button class="icon-button" type="button" aria-label="帮助">?</button>
+          <button class="avatar-button" type="button" aria-label="用户菜单">JC</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="command-strip">
+          <details class="notice-panel compact-notice">
+            <summary>
+              <span>
+                <span class="notice-icon">▣</span>
+                <span>
+                  <strong>参考文件信息</strong>
+                  <span id="notice-summary">示例企业（演示） / 初次认证第二阶段 / 2 天 / 4.0 人日</span>
+                  <span id="system-profile" class="system-profile" aria-label="体系组合"></span>
+                </span>
+              </span>
+              <span class="tag">展开编辑⌄</span>
+            </summary>
+            <div class="form-grid">
+              <label>
+                受审核方
+                <input id="company" type="text" value="示例企业（演示）">
+              </label>
+              <label>
+                审核类型
+                <select id="audit-type">
+                  <option>初次认证第一阶段</option>
+                  <option selected>初次认证第二阶段</option>
+                  <option>监督审核</option>
+                  <option>再认证审核</option>
+                  <option>特殊审核</option>
+                </select>
+              </label>
+              <label>
+                开始日期
+                <input id="start-date" type="date" value="2026-08-25">
+              </label>
+              <label>
+                审核天数
+                <input id="audit-days" type="number" min="1" max="60" step="1" value="2">
+              </label>
+              <label>
+                总审核人日
+                <input id="person-days" type="number" min="0.5" max="200" step="0.01" value="4.0">
+              </label>
+              <label>首日开始时间<input id="audit-start-time" type="time" value="08:30"></label>
+              <label>末日结束时间<input id="audit-end-time" type="time" value="17:00"></label>
+              <label>午休时长（小时）<input id="lunch-hours" type="number" min="0" max="3" step="0.25" value="1"></label>
+              <label>倒班审核时长（小时）<input id="shift-hours" type="number" min="0" max="8" step="0.5" value="0"></label>
+              <label>倒班审核日期<input id="shift-date" type="date"></label>
+              <label>倒班开始时间<input id="shift-start" type="time"></label>
+              <label>环境体系版本<select id="ems-version"><option value="2026">ISO 14001:2026</option><option value="2015">ISO 14001:2015</option></select></label>
+              <label>
+                编排模式
+                <select id="team-mode">
+                  <option value="parallel" selected>按人员分组</option>
+                  <option value="together">审核组同行</option>
+                </select>
+              </label>
+              <label class="wide-field">
+                认证范围
+                <textarea id="scope" rows="2">示例产品的生产和销售</textarea>
+              </label>
+            </div>
+          </details>
+          <div class="top-actions">
+            <input id="notice-file" type="file" accept=".xlsx,.pdf,.txt" hidden>
+            <button id="btn-import" class="btn btn-import" type="button">导入参考文件</button>
+            <button id="btn-suggest" class="btn" type="button">重置建议</button>
+            <button id="btn-schedule" class="btn btn-primary" type="button">生成日程</button>
+            <button id="btn-print" class="btn" type="button">打印</button>
+          </div>
+        </section>
+
+      <section class="board-layout" aria-label="条款和部门编排">
+        <aside class="phase-panel">
+          <div class="section-heading">
+            <h2>审核阶段</h2>
+            <span id="phase-summary" class="tag">二阶段</span>
+          </div>
+          <div class="phase-list">
+            <button class="phase-card" type="button" data-phase-id="stage1">
+              <span class="phase-card-title">一阶段审核计划</span>
+              <span class="phase-card-meta">文件评审 / 现场准备 / 范围确认</span>
+              <span class="phase-card-foot">建议 1 天 / 2.0 人日</span>
+            </button>
+            <button class="phase-card is-active" type="button" data-phase-id="stage2">
+              <span class="phase-card-title">二阶段审核计划</span>
+              <span class="phase-card-meta">部门审核 / 条款覆盖 / 专业确认</span>
+              <span class="phase-card-foot">建议 2 天 / 4.0 人日</span>
+            </button>
+          </div>
+          <div class="legend phase-legend">
+            <span><b class="dot common"></b>通用</span>
+            <span><b class="dot professional"></b>专业</span>
+            <span><b class="dot conditional"></b>适用性</span>
+          </div>
+          <div id="unassigned-section" hidden>
+            <h3>待分配条款</h3>
+            <div id="unassigned-clauses" class="clause-list drop-area" data-dept-id="unassigned"></div>
+          </div>
+        </aside>
+
+        <section class="department-area">
+          <div class="section-heading">
+            <h2>部门框</h2>
+            <span id="active-phase-label" class="tag">二阶段审核计划</span>
+            <div class="add-dept">
+              <input id="new-dept-name" type="text" placeholder="新增部门">
+              <button id="btn-add-dept" class="btn" type="button">添加</button>
+            </div>
+          </div>
+          <div id="department-board" class="department-board"></div>
+        </section>
+
+        <aside class="side-panel">
+          <section aria-labelledby="team-title">
+            <div class="section-heading">
+              <h2 id="team-title">审核组</h2>
+              <button id="btn-add-auditor" class="btn" type="button">添加人员</button>
+            </div>
+            <div id="auditor-list" class="auditor-list"></div>
+          </section>
+
+          <section aria-labelledby="check-title">
+            <div class="section-heading">
+              <h2 id="check-title">覆盖检查</h2>
+              <span id="check-summary" class="tag">待检查</span>
+            </div>
+            <div class="metrics">
+              <div>
+                <span class="metric-value" id="covered-count">0</span>
+                <span class="metric-label">已覆盖</span>
+              </div>
+              <div>
+                <span class="metric-value" id="missing-count">0</span>
+                <span class="metric-label">未分配</span>
+              </div>
+              <div>
+                <span class="metric-value" id="professional-count">0</span>
+                <span class="metric-label">专业风险</span>
+              </div>
+            </div>
+            <ul id="issues-list" class="issues-list"></ul>
+            <p id="system-coverage" class="system-coverage"></p>
+          </section>
+
+          <section aria-labelledby="specialty-title">
+            <div class="section-heading">
+              <h2 id="specialty-title">专业条款策略</h2>
+              <span id="specialty-summary" class="tag">单Q</span>
+            </div>
+            <div id="professional-strategy" class="strategy-list"></div>
+          </section>
+        </aside>
+      </section>
+
+      <section class="schedule-panel" aria-labelledby="schedule-title">
+        <div class="section-heading">
+          <h2 id="schedule-title">审核日程预览</h2>
+          <span id="hours-summary" class="tag">未生成</span>
+        </div>
+        <div class="table-wrap">
+          <table class="schedule-table">
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>时间</th>
+                <th>部门/过程</th>
+                <th>条款</th>
+                <th>审核人员</th>
+              </tr>
+            </thead>
+            <tbody id="schedule-body"></tbody>
+          </table>
+        </div>
+      </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="audit-rules.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
