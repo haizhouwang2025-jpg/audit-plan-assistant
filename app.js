@@ -971,11 +971,10 @@ function clauseText(clauses) {
 }
 
 function processText(deptName, clauses) {
-  const scope = document.getElementById("scope").value.trim();
   const titles = uniqueList(clauses.map((clause) => clause.title)).join("；");
   const dept = state.departments.find((item) => item.name === deptName);
   const extra = [dept?.manager ? `负责人：${dept.manager}` : "", dept?.site ? `审核场所：${dept.site}` : "", dept?.processNotes].filter(Boolean).join("\n");
-  return `${deptName}${state.activePhase === "stage1" ? "（文件、现场及二阶段准备度确认）" : ""}：${titles}。涉及范围：${scope || "按认证范围确认"}${extra ? "\n" + extra : ""}`;
+  return `${deptName}${state.activePhase === "stage1" ? "（文件、现场及二阶段准备度确认）" : ""}：${titles}。${extra ? "\n" + extra : ""}`;
 }
 
 function getShiftAssignment() {
