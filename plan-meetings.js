@@ -11,7 +11,9 @@ function buildMeetingPlan() {
     meetings.push({
       kind, meetingKey: key, date, absStart: start, absEnd: end,
       time: `${formatTime(start)}-${end === (day + 1) * 1440 ? "24:00" : formatTime(end)}`,
-      process: title, clauses: auditMeetingContent[kind], auditorIds, auditors: getAuditorDisplay(auditorIds),
+      process: title,
+      clauses: auditMeetingContent[kind === "internal" && day < window.days - 1 ? "dailyInternal" : kind],
+      auditorIds, auditors: getAuditorDisplay(auditorIds),
       countsTowardAudit: true
     });
   }
