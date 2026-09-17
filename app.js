@@ -152,6 +152,7 @@ const state = {
   emsVersion: "2026",
   phaseDrafts: {},
   meetingOverrides: {},
+  travelIntervals: [],
   assignmentFindings: [],
   departments: [
     { id: "management", name: "管理层/管代", auditorIds: ["A"] },
@@ -329,11 +330,12 @@ function groupedTiles(clauses, dept) {
   return [...groups.values()];
 }
 
-const phaseFieldIds = ["audit-type", "start-date", "audit-days", "person-days", "team-mode", "audit-start-time", "audit-end-time", "lunch-hours", "shift-hours", "shift-date", "shift-start"];
+const phaseFieldIds = ["audit-type", "start-date", "audit-days", "person-days", "team-mode", "audit-start-time", "audit-end-time", "lunch-start", "lunch-hours", "shift-hours", "shift-date", "shift-start"];
 
 function savePhaseDraft() {
   state.phaseDrafts[state.activePhase] = {
     meetingOverrides: { ...state.meetingOverrides },
+    travelIntervals: structuredClone(state.travelIntervals || []),
     departments: cloneDepartments(state.departments),
     assignments: structuredClone(state.assignments),
     professionalAssignments: structuredClone(state.professionalAssignments),
@@ -423,6 +425,7 @@ function applyPhasePreset(phaseId) {
   const preset = phasePresets[phaseId] || phasePresets.stage2;
   state.activePhase = phaseId;
   state.meetingOverrides = {};
+  state.travelIntervals = [];
   state.departments = cloneDepartments(preset.departments);
   state.assignments = {};
   state.assignments = buildAssignmentsForPreset(preset);
@@ -438,6 +441,7 @@ function setActivePhase(phaseId) {
   if (draft) {
     state.activePhase = phaseId;
     state.meetingOverrides = { ...(draft.meetingOverrides || {}) };
+    state.travelIntervals = structuredClone(draft.travelIntervals || []);
     state.departments = cloneDepartments(draft.departments);
     state.assignments = structuredClone(draft.assignments);
     state.professionalAssignments = structuredClone(draft.professionalAssignments);
@@ -520,7 +524,7 @@ function createClauseTile(clause, deptId) {
 
 function updateNoticeSummary() {
   if (!state.importedPlan && !state.importedFileName) {
-    document.getElementById("notice-summary").textContent = "Excel · .xlsx";
+    document.getElementById("notice-summary").textContent = "Word / PDF / Excel";
     return;
   }
   const company = document.getElementById("company").value.trim() || "未填写企业";
@@ -911,16 +915,17 @@ function buildSegments(meetings = buildMeetingPlan().meetings) {
   const startDate = document.getElementById("start-date").value || "2026-08-25";
   const { days, start, end } = scheduleWindow();
   const lunch = Math.max(0, Number(document.getElementById("lunch-hours").value || 0)) * 60;
+  const lunchStart = parseTime(document.getElementById("lunch-start").value || "12:00");
   const segments = [];
   for (let day = 0; day < days; day += 1) {
     const date = addDays(startDate, day);
     const internal = meetings.find(m => m.kind === "internal" && m.date === date);
     const workEnd = Math.min(end - 60, internal?.absStart ?? end - 90);
-    for (const [left, right] of [[510, 720], [720 + lunch, 1020]]) {
+    for (const [left, right] of [[510, lunchStart], [lunchStart + lunch, 1020]]) {
       segments.push({ date, absStart: Math.max(day * 1440 + left, start + 30), absEnd: Math.min(day * 1440 + right, workEnd) });
     }
   }
-  return segments.filter((segment) => segment.absEnd > segment.absStart);
+  return excludeTravelTime(segments.filter((segment) => segment.absEnd > segment.absStart));
 }
 
 function findSegmentAtOrAfter(segments, cursor) {
@@ -1013,8 +1018,12 @@ function generateSchedule() {
   const segments = buildSegments(meetingPlan.meetings);
   const allAuditorIds = state.auditors.map((auditor) => auditor.id);
   const cursors = Object.fromEntries(allAuditorIds.map((id) => [id, segments[0]?.absStart || 0]));
-  const rows = [...meetingPlan.meetings];
-  const warnings = [...meetingPlan.warnings];
+  const travelPlan = buildTravelPlan();
+  const rows = [...meetingPlan.meetings, ...travelPlan.rows];
+  const warnings = [...meetingPlan.warnings, ...travelPlan.warnings];
+  const lunchStart = parseTime(document.getElementById("lunch-start").value || "12:00");
+  const lunchHours = Number(document.getElementById("lunch-hours").value);
+  if (lunchStart<510 || lunchHours<0 || lunchHours>3 || lunchStart+lunchHours*60>1020) warnings.push("午休起止时间须位于当日 08:30–17:00 之间，请调整。");
   const workItems = buildDepartmentDurations(mode, meetingPlan.meetings);
   workItems.forEach((item) => {
     let remaining = item.clockMinutes;
@@ -1829,7 +1838,9 @@ function setStageFieldsFromImportedPlan(plan, phaseId) {
   document.getElementById("start-date").value = valueToString(project[`${prefix}_start_date`] || project.stage2_start_date || "");
   document.getElementById("audit-start-time").value = importedTime(project[`${prefix}_start_time`]) || "08:30";
   document.getElementById("audit-end-time").value = importedTime(project[`${prefix}_end_time`]) || "17:00";
-  document.getElementById("lunch-hours").value = parseFloat(project.lunch_hours) || 1;
+  document.getElementById("lunch-start").value = importedTime(project.lunch_start) || "12:00";
+  document.getElementById("lunch-hours").value = project.lunch_hours === "" || project.lunch_hours == null ? 1 : Number(project.lunch_hours);
+  state.travelIntervals = phaseId === "stage2" || project.stage2_audit_type === "初次认证第一阶段" ? structuredClone(project.travel_intervals || []) : [];
   document.getElementById("shift-hours").value = phaseId === "stage2" ? parseFloat(project.shift_audit_hours) || 0 : 0;
   document.getElementById("shift-date").value = phaseId === "stage2" ? valueToString(project.shift_date) : "";
   document.getElementById("shift-start").value = phaseId === "stage2" ? importedTime(project.shift_start) : "";
@@ -1849,6 +1860,7 @@ function setStageFieldsFromImportedPlan(plan, phaseId) {
 }
 
 function applyImportedPlan(plan) {
+  state.noticeSource = null;
   state.rawImportedPlan = structuredClone(plan);
   plan = prepareImportedPlan(plan);
   state.importedPlan = plan;
@@ -1924,6 +1936,7 @@ function buildImportFindings(parsed, file) {
 }
 
 function render() {
+  document.getElementById("btn-review-notice").hidden = !state.noticeSource;
   renderPhaseSelector();
   renderSystemProfile();
   renderDepartments();
@@ -1946,10 +1959,9 @@ function setImportStatus(text, status) {
 
 async function handleNoticeImport(event) {
   const file = event.target.files?.[0];
-  if (!file || importingFile) return;
+  if (!file || importingFile || document.getElementById("notice-review").open) return;
   importingFile = true;
   const backup = { state: structuredClone(state), presets: structuredClone(phasePresets), fields: Object.fromEntries([...phaseFieldIds, "company", "scope", "ems-version"].map((id) => [id, document.getElementById(id).value])) };
-  state.importedFileName = file.name;
   const importButton = document.getElementById("btn-import");
   setImportStatus("解析中...", "loading");
 
@@ -1957,6 +1969,7 @@ async function handleNoticeImport(event) {
     if (file.name.toLowerCase().endsWith(".xlsx")) {
       const plan = await parseAuditPlanWorkbook(file);
       applyImportedPlan(plan);
+      state.importedFileName = file.name;
       state.importFindings = buildWorkbookFindings(state.importedPlan);
       setImportStatus("已加载表格", "success");
       render();
@@ -1964,15 +1977,9 @@ async function handleNoticeImport(event) {
       return;
     }
 
-    const text = await extractNoticeText(file);
-    const parsed = parseNoticeText(text, file.name);
-    const phaseId = parsed.phaseId || state.activePhase;
-    applyPhasePreset(phaseId);
-    applyParsedNotice(parsed);
-    state.importFindings = buildImportFindings(parsed, file);
-    setImportStatus("已加载表格", "success");
-    render();
-    generateSchedule();
+    const draft = await readTaskNotice(file);
+    openNoticeReview(draft);
+    setImportStatus("待复核，原计划未变更", "pending");
   } catch (error) {
     console.error(error);
     Object.assign(state, backup.state);
@@ -2036,6 +2043,10 @@ document.getElementById("btn-download-word").addEventListener("click", downloadH
 window.addEventListener("beforeprint", preparePlanPrint);
 document.getElementById("btn-add-dept").addEventListener("click", addDepartment);
 document.getElementById("btn-add-auditor").addEventListener("click", addAuditor);
+document.getElementById("btn-review-notice").addEventListener("click", reopenNoticeReview);
+document.getElementById("notice-review").addEventListener("close", event => {
+  if (!importingFile && !event.target.open && event.target.dataset.applied !== "true") setImportStatus("已取消复核，原计划未变更", "pending");
+});
 document.getElementById("new-dept-name").addEventListener("keydown", (event) => {
   if (event.key === "Enter") addDepartment();
 });
@@ -2044,6 +2055,11 @@ document.getElementById("new-dept-name").addEventListener("keydown", (event) => 
 });
 
 document.getElementById("ems-version").addEventListener("change", (event) => {
+  if (state.noticeSource) {
+    event.target.value = state.emsVersion;
+    reopenNoticeReview();
+    return;
+  }
   const version = event.target.value;
   if (state.rawImportedPlan) {
     const plan = structuredClone(state.rawImportedPlan);

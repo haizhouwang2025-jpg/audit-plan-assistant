@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#b21e35">
   <title>海德认证 审核计划辅助系统</title>
-  <link rel="stylesheet" href="styles.css?v=20260916-plan-optimization">
+  <link rel="stylesheet" href="styles.css?v=20260917-notice-review">
   <link rel="icon" href="assets/head-certification-logo.png" type="image/png">
 </head>
 <body>
@@ -46,17 +46,18 @@
 
       <main class="workspace">
         <section class="command-strip">
-          <section id="plan-file-dropzone" class="notice-panel import-panel" aria-label="加载实施计划表格" aria-busy="false">
-            <input id="notice-file" type="file" accept=".xlsx,.pdf,.txt" hidden>
+          <section id="plan-file-dropzone" class="notice-panel import-panel" aria-label="导入审核任务通知书或 Excel" aria-busy="false">
+            <input id="notice-file" type="file" accept=".doc,.docx,.xlsx,.pdf,.txt" hidden>
             <div class="import-header">
-              <button id="btn-import" class="import-trigger" type="button" title="拖入 Excel 表格，或点击选择文件" aria-label="加载实施计划表格，支持拖入 Excel 或点击选择"><i data-lucide="upload" aria-hidden="true"></i><span>加载实施计划表格</span></button>
+              <button id="btn-import" class="import-trigger" type="button" title="拖入审核任务通知书或 Excel，或点击选择文件" aria-label="导入审核任务通知书或 Excel"><i data-lucide="upload" aria-hidden="true"></i><span>导入审核任务通知书</span></button>
               <span id="import-status" class="import-status" role="status" hidden></span>
+              <button id="btn-review-notice" class="btn" type="button" hidden><i data-lucide="clipboard-check"></i>复核信息</button>
             </div>
           <details class="compact-notice">
             <summary>
               <span>
                 <span>
-                  <span id="notice-summary">Excel · .xlsx</span>
+                  <span id="notice-summary">Word / PDF / Excel</span>
                   <span id="system-profile" class="system-profile" aria-label="项目体系组合"></span>
                 </span>
               </span>
@@ -86,7 +87,7 @@
                 <input id="start-date" type="date" value="2026-08-25">
               </label>
               <label>
-                审核天数
+                跨越日历天数
                 <input id="audit-days" type="number" min="1" max="60" step="1" value="2">
               </label>
               <label>
@@ -95,6 +96,7 @@
               </label>
               <label>首日开始时间<input id="audit-start-time" type="time" value="08:30"></label>
               <label>末日结束时间<input id="audit-end-time" type="time" value="17:00"></label>
+              <label>午休开始时间<input id="lunch-start" type="time" min="08:30" max="17:00" value="12:00"></label>
               <label>午休时长（小时）<input id="lunch-hours" type="number" min="0" max="3" step="0.25" value="1"></label>
               <label>倒班审核时长（小时）<input id="shift-hours" type="number" min="0" max="8" step="0.5" value="0"></label>
               <label>倒班审核日期<input id="shift-date" type="date"></label>
@@ -256,15 +258,20 @@
     </div>
   </dialog>
   <div id="print-content" aria-hidden="true"></div>
+  <dialog id="notice-review" class="notice-review" aria-labelledby="notice-review-title"><form id="notice-review-form"></form></dialog>
 
   <script src="vendor/jszip/jszip.min.js"></script>
   <script src="vendor/lucide/lucide.min.js"></script>
+  <script src="vendor/jsdoc/docToText.js"></script>
   <script src="haide-fields.js"></script>
   <script src="haide-template.js"></script>
-  <script src="haide-plan.js?v=20260916-plan-optimization"></script>
+  <script src="haide-plan.js?v=20260917-notice-review"></script>
   <script src="audit-rules.js"></script>
   <script src="plan-content.js?v=20260917-daily-communication"></script>
   <script src="plan-meetings.js?v=20260917-daily-communication"></script>
-  <script src="app.js?v=20260916-plan-optimization"></script>
+  <script src="plan-travel.js?v=20260917-notice-review"></script>
+  <script src="notice-import.js?v=20260917-notice-review"></script>
+  <script src="notice-review.js?v=20260917-notice-review"></script>
+  <script src="app.js?v=20260917-notice-review"></script>
 </body>
 </html>

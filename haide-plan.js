@@ -39,9 +39,9 @@ function buildHaidePlanModel() {
     shift: `${Number(document.getElementById("shift-hours").value)>0?"☑":"□"}针对倒班作业：需要进行其他班次的审核。`,
     outsourcing: `${yesNoToBoolean(project.outsource_visit)?"☑":"□"}针对外包过程：需要到外包方的作业现场进行审核。${text("outsource_details")?"\n"+text("outsource_details"):""}`,
     person_days: `总现场审核人日：${document.getElementById("person-days").value} 人日`,
-    dates: `审核日期：${date || "待确认"} 至 ${end || "待确认"}，共 ${scheduleWindow().days} 天`,
+    dates: `审核日期：${date || "待确认"} 至 ${end || "待确认"}${state.importedPlan?.sourceType === "task_notice" ? "" : `，共 ${scheduleWindow().days} 天`}`,
     other_purpose: text("other_purpose"),
-    schedule_notes: [`每日午休 ${document.getElementById("lunch-hours").value} 小时。`,text("site_arrangements"),text("travel_arrangements")?`转场安排（不计入审核人日）：${text("travel_arrangements")}`:"",text("schedule_notes")].filter(Boolean).join("\n")
+    schedule_notes: [`每日午休 ${document.getElementById("lunch-start").value} 开始，${document.getElementById("lunch-hours").value} 小时。`,text("site_arrangements"),text("travel_arrangements")?`转场安排（不计入审核人日）：${text("travel_arrangements")}`:"",...(state.travelIntervals || []).map(t=>`转场（不计入审核人日）：${t.date} ${t.start}-${t.end} ${t.route}`),text("schedule_notes")].filter(Boolean).join("\n")
   };
   HAIDE_TEMPLATE.purposes.forEach((_,index) => { fields[`purpose_${index}`]=index===selected?"☑":"□"; });
   const auditors=state.auditors.map((a) => {

@@ -1,5 +1,12 @@
 # Third-Party Notices
 
+## JSDoc Legacy Word Reader
+
+- Project: https://github.com/Alpaq92/JSDoc
+- Pinned revision: 821695a884e0c0bb8592a635d9524bb3e116cd67
+- License: 0BSD. Full notice: `vendor/jsdoc/LICENSE`.
+- The unchanged `docToText.js` reader extracts old Word .doc text locally in the browser. No file upload or Office installation is required for this reader.
+
 ## Lucide
 
 - Version: 1.8.0
