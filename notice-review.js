@@ -58,8 +58,10 @@ function updateNoticeDepartmentRow(row) {
 
 function noticeAuditorRow(a = {}) {
   const codes = a.professionalCodes || {};
-  return `<div class="review-auditor" data-review-auditor>
-    <div class="review-grid auditor-basic">${reviewInput('auditor_code','人员代码',a.code,'text',true)}${reviewInput('auditor_name','姓名',a.name,'text',true)}${reviewSelect('auditor_role','组内身份',['组长','组员','技术专家','实习'].map(v=>[v,v]),a.role || '组员')}<button type="button" class="icon-button" data-remove-review-row title="移除人员" aria-label="移除人员"><i data-lucide="trash-2"></i></button></div>
+  const roles=['组长','组员','技术专家','实习'].map(v=>[v,v]);
+  if (a.systemRoles) roles.unshift(['system_roles',noticeAuditorRoleLabel(a)]);
+  return `<div class="review-auditor" data-review-auditor data-system-roles="${escapeHtml(JSON.stringify(a.systemRoles || {}))}">
+    <div class="review-grid auditor-basic">${reviewInput('auditor_code','人员代码',a.code,'text',true)}${reviewInput('auditor_name','姓名',a.name,'text',true)}${reviewSelect('auditor_role','组内身份',roles,a.systemRoles ? 'system_roles' : a.role || '组员')}<button type="button" class="icon-button" data-remove-review-row title="移除人员" aria-label="移除人员"><i data-lucide="trash-2"></i></button></div>
     <div class="review-grid">${reviewInput('auditor_registration','注册证书号',a.registration)}${reviewInput('auditor_phone','联系电话',a.phone,'text',true)}${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>reviewInput(`auditor_${k}`,`${k.toUpperCase()} 专业代码（无则留空）`,codes[s])).join('')}${reviewInput('auditor_employer','工作单位',a.employer)}${reviewInput('auditor_fullTime','是否专职',a.fullTime)}</div>
   </div>`;
 }
@@ -171,11 +173,14 @@ function confirmNoticeReview(event) {
     if (!departments.length) throw new Error('请补充实际部门及承担过程。通知书没有部门信息，不能沿用演示部门。');
     if (departments.some(dept=>!dept.name)) throw new Error('请填写已启用过程的实际部门名称。');
     const auditors = [...form.querySelectorAll('[data-review-auditor]')].map(row=>{
-      const code = value(row,'auditor_code').toUpperCase(), role = value(row,'auditor_role');
+      const code = value(row,'auditor_code').toUpperCase();
+      const selectedRole=value(row,'auditor_role');
+      const systemRoles=selectedRole==='system_roles' ? JSON.parse(row.dataset.systemRoles) : null;
+      const role=systemRoles ? noticeAuditorRoles(noticeAuditorRoleLabel({systemRoles})).role : selectedRole;
       const professionalCodes = Object.fromEntries(systems.map(s=>[s,value(row,`auditor_${NOTICE_SYSTEMS[s]}`)]));
       if (!/^[A-Z]$/.test(code)) throw new Error('人员代码请使用单个英文字母，如 A、B。');
       if (!['技术专家','实习'].includes(role) && !value(row,'auditor_registration')) throw new Error('请补充审核员注册证书号。');
-      return {id:code,code,name:value(row,'auditor_name'),role,registration:value(row,'auditor_registration'),phone:value(row,'auditor_phone'),employer:value(row,'auditor_employer'),fullTime:value(row,'auditor_fullTime'),professionalCodes,independent:!['技术专家','实习'].includes(role)};
+      return {id:code,code,name:value(row,'auditor_name'),role,...(systemRoles ? {systemRoles} : {}),registration:value(row,'auditor_registration'),phone:value(row,'auditor_phone'),employer:value(row,'auditor_employer'),fullTime:value(row,'auditor_fullTime'),professionalCodes,independent:!['技术专家','实习'].includes(role)};
     });
     if (!auditors.length || !auditors.some(a=>a.role==='组长')) throw new Error('请填写审核组并指定组长。');
     if (new Set(auditors.map(a=>a.code)).size!==auditors.length) throw new Error('人员代码不能重复。');

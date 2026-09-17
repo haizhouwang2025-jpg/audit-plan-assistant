@@ -40,7 +40,7 @@ function fillDepartmentSchedule(mode, segments, fixedRows) {
     const {clauses,workload}=getDepartmentWorkload(dept);
     if (!clauses.length) continue;
     const assignedIds=normalizeAuditorGroupIds(mode==='together' ? allIds : dept.auditorIds);
-    if (!assignedIds.some(id=>isIndependentAuditor(getAuditor(id)))) {warnings.push(dept.name+'缺少可独立主审人员，尚未排入日程。');continue;}
+    if (!hasIndependentClauseCoverage(assignedIds,clauses)) {warnings.push(dept.name+'缺少相应体系的可独立主审人员，尚未排入日程。');continue;}
     const key=assignedIds.join('+');
     if (!groups.has(key)) groups.set(key,{assignedIds,items:[],workload:0});
     const group=groups.get(key);

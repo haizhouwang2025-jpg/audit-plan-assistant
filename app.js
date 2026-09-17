@@ -303,11 +303,21 @@ function clausesForDepartment(dept) {
 }
 
 function isIndependentAuditor(auditor) {
-  return auditor && !["技术专家", "实习"].includes(auditor.role) && auditor.status !== "实习" && auditor.independent !== false;
+  return state.systems.some(system=>isIndependentForSystem(auditor,system));
+}
+
+function isIndependentForSystem(auditor, system) {
+  const role=auditor?.systemRoles ? auditor.systemRoles[system] : auditor?.role;
+  return auditor && ["组长", "组员"].includes(role) && auditor.status !== "实习" && auditor.independent !== false;
+}
+
+function hasIndependentClauseCoverage(ids, clauses) {
+  return clauses.every(clause=>ids.some(id=>isIndependentForSystem(getAuditor(id),clause.system)));
 }
 
 function professionalFor(auditor, system) {
   return auditor && auditor.status !== "实习" && auditor.role !== "实习" &&
+    (!auditor.systemRoles || auditor.systemRoles[system] && auditor.systemRoles[system] !== "实习") &&
     (auditor.professionalSystems ? auditor.professionalSystems.includes(system) : auditor.professional);
 }
 
@@ -471,6 +481,7 @@ function getAuditor(id) {
 
 function getAuditorRoleText(auditor) {
   if (!auditor) return "";
+  if (auditor.systemRoles) return noticeAuditorRoleLabel(auditor);
   if (auditor.status === "实习" || auditor.role === "实习") return "实习";
   const systems = state.systems.filter((system) => professionalFor(auditor, system));
   return systems.length ? `${auditor.role}/${systems.map((system) => systemCatalog[system]?.code).join("/")}专业` : auditor.role;
@@ -724,15 +735,16 @@ function renderAuditors() {
   list.innerHTML = "";
   state.auditors.forEach((auditor) => {
     const row = document.createElement("div");
-    row.className = "auditor-row";
+    row.className = auditor.systemRoles ? "auditor-row has-system-roles" : "auditor-row";
     row.innerHTML = `
       <input value="${escapeHtml(auditor.code)}" aria-label="审核员代码" maxlength="2">
       <input value="${escapeHtml(auditor.name)}" aria-label="审核员姓名">
       <select aria-label="组内身份">
-        <option ${auditor.role === "组长" ? "selected" : ""}>组长</option>
-        <option ${auditor.role === "组员" ? "selected" : ""}>组员</option>
-        <option ${auditor.role === "技术专家" ? "selected" : ""}>技术专家</option>
-        <option ${auditor.role === "实习" ? "selected" : ""}>实习</option>
+        ${auditor.systemRoles ? `<option value="system_roles" selected>${escapeHtml(noticeAuditorRoleLabel(auditor))}</option>` : ''}
+        <option ${!auditor.systemRoles && auditor.role === "组长" ? "selected" : ""}>组长</option>
+        <option ${!auditor.systemRoles && auditor.role === "组员" ? "selected" : ""}>组员</option>
+        <option ${!auditor.systemRoles && auditor.role === "技术专家" ? "selected" : ""}>技术专家</option>
+        <option ${!auditor.systemRoles && auditor.role === "实习" ? "selected" : ""}>实习</option>
       </select>
       <div class="checkline system-capabilities"></div>
     `;
@@ -760,6 +772,8 @@ function renderAuditors() {
       generateSchedule();
     });
     roleSelect.addEventListener("change", (event) => {
+      if (event.target.value === "system_roles") return;
+      delete auditor.systemRoles;
       auditor.role = event.target.value;
       auditor.status = auditor.role === "实习" ? "实习" : "";
       auditor.independent = !["实习", "技术专家"].includes(auditor.role);
@@ -780,7 +794,7 @@ function renderDiagnostics() {
 
   state.departments.forEach((dept) => {
     const deptClauses = clausesForDepartment(dept);
-    if (deptClauses.length && !dept.auditorIds.some((id) => isIndependentAuditor(getAuditor(id)))) {
+    if (deptClauses.length && !hasIndependentClauseCoverage(dept.auditorIds,deptClauses)) {
       emptyAuditorDepartments.push(dept.name);
     }
     const missingSystems = uniqueList(deptClauses.filter((clause) => requiresProfessional(clause, dept) &&
@@ -958,7 +972,7 @@ function getShiftAssignment() {
   const absoluteStart = Math.round((Date.parse(date) - Date.parse(firstDate)) / 86400000) * 1440 + start;
   if (start < 1020 || start + hours * 60 > 1440 || absoluteStart < windowStart || absoluteStart + hours * 60 > windowEnd) return null;
   const dept = state.departments.find((item) => item.processes?.some((process) => ["operation", "sales29"].includes(process))) || state.departments.find((item) => item.id === "operation");
-  if (!dept || !dept.auditorIds.some((id) => isIndependentAuditor(getAuditor(id)))) return null;
+  if (!dept || !hasIndependentClauseCoverage(dept.auditorIds,clausesForDepartment(dept))) return null;
   return { dept, date, start, minutes: hours * 60, auditorIds: document.getElementById("team-mode").value === "together" ? state.auditors.map((auditor) => auditor.id) : dept.auditorIds };
 }
 
@@ -1725,7 +1739,7 @@ function suggestAuditors() {
   state.departments.forEach((dept) => {
     const clauses = clausesForDepartment(dept);
     const required = uniqueList(clauses.filter((clause) => requiresProfessional(clause, dept)).map((clause) => clause.system));
-    const candidates = [...auditors].sort((a, b) => {
+    const candidates = auditors.filter(a=>clauses.every(clause=>isIndependentForSystem(a,clause.system))).sort((a, b) => {
       const score = (person) => required.filter((system) => professionalFor(person, system)).length * -100 +
         (dept.processes?.includes("management") && person.role === "组长" ? -25 : 0) +
         (!required.length && person.professional ? 10 : 0) + loads[person.id];

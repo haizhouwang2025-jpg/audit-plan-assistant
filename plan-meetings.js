@@ -32,7 +32,9 @@ function countedPersonHours(rows) {
   return rows.reduce((sum, row) => {
     if (row.countsTowardAudit === false) return sum;
     const [start, end] = row.time.split("-");
-    const count = row.auditorIds.filter(id => isIndependentAuditor(getAuditor(id))).length;
+    const department=row.departmentId && getDepartment(row.departmentId);
+    const systems=department ? [...new Set(clausesForDepartment(department).map(clause=>clause.system))] : state.systems;
+    const count = row.auditorIds.filter(id => systems.some(system=>isIndependentForSystem(getAuditor(id),system))).length;
     return sum + (parseTime(end) - parseTime(start)) * count;
   }, 0) / 60;
 }
