@@ -1384,7 +1384,12 @@ body.preview-open { overflow: hidden; }
 .review-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 12px; }
 .review-section-heading h3, .review-section-heading h4 { margin: 0; }
 .review-section-heading:has(h4) { margin-top: 20px; }
-.review-department { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr) 36px; gap: 12px; align-items: end; margin-top: 10px; }
+#review-departments { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 20px; }
+.review-department { display: grid; grid-template-columns: 16px minmax(0,1fr) minmax(0,1fr) 32px; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px solid #e4e6e9; min-width: 0; }
+.notice-review .review-department > [type=checkbox] { margin-bottom: 10px; }
+.review-department .icon-button { width: 32px; height: 36px; }
+.review-department.is-disabled label { opacity: .55; }
+.department-default-status { display: inline-block; margin-left: 10px; color: #815611; font-size: 12px; font-weight: 400; }
 .review-auditor { border-bottom: 1px solid #e4e6e9; padding: 12px 0 18px; }
 .review-auditor:last-child { border-bottom: 0; }
 .auditor-basic { grid-template-columns: 80px minmax(0,1fr) 130px 36px; margin-bottom: 12px; align-items: end; }
@@ -1408,15 +1413,23 @@ body.preview-open { overflow: hidden; }
   .auditor-basic { grid-template-columns: 60px minmax(0,1fr) 36px; }
   .auditor-basic label:nth-child(3) { grid-column: 1 / 3; }
   .auditor-basic button { grid-column: 3; grid-row: 2; }
-  .review-department { grid-template-columns: minmax(0,1fr) 36px; }
-  .review-department label { grid-column: 1; }
-  .review-department button { grid-column: 2; grid-row: 2; }
+  #review-departments { grid-template-columns: minmax(0,1fr); gap: 4px; }
+  #notice-department-settings .review-section-heading { align-items: flex-start; }
+  #notice-department-settings .review-section-heading h3 { min-width: 0; }
+  #notice-department-settings .review-section-heading .btn { flex-shrink: 0; }
+  .department-default-status { display: block; margin: 6px 0 0; }
   .review-travel { grid-template-columns: repeat(2,minmax(0,1fr)) 36px; }
   .review-travel label:first-child { grid-column: 1 / 3; }
   .review-travel label:nth-child(2) { grid-row: 2; }
   .review-travel label:nth-child(3) { grid-row: 2; }
   .review-travel label:nth-child(4) { grid-column: 1 / 3; }
   .review-travel button { grid-column: 3; grid-row: 3; }
+}
+@media (max-width: 400px) {
+  .review-department { grid-template-columns: 16px minmax(0,1fr) 32px; }
+  .review-department > [type=checkbox] { grid-column: 1; grid-row: 1 / 3; align-self: center; }
+  .review-department label { grid-column: 2; }
+  .review-department button { grid-column: 3; grid-row: 2; }
 }
 
 @page {

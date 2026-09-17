@@ -1,5 +1,6 @@
 let noticeDraft = null;
 const noticeProcesses = {management:'体系管理',admin:'行政管理',sales:'销售客服',purchase:'采购管理',operation:'生产/服务实现',quality:'质检/技术',finance:'财务管理'};
+const noticeDepartmentDefaults = {sales:'市场部',operation:'生产部',purchase:'市场部',quality:'技术部',admin:'综合部',finance:'财务部',management:'管理层'};
 
 function reviewInput(key, label, value = '', type = 'text', required = false) {
   return `<label>${escapeHtml(label)}${required ? '<span class="required-mark">*</span>' : ''}<input name="${key}" type="${type}" value="${escapeHtml(value ?? '')}" ${required?'required':''} ${type==='number'?`min="0" step="${key.endsWith('person_days')?'0.01':'0.25'}"`:''}></label>`;
@@ -14,7 +15,16 @@ function reviewSelect(key, label, options, value) {
 }
 
 function noticeDepartmentRow(dept = {}) {
-  return `<div class="review-department" data-review-department>${reviewInput('dept_name','实际部门名称',dept.name,'text',true)}${reviewSelect('dept_process','承担过程',Object.entries(noticeProcesses),dept.process || 'management')}<button type="button" class="icon-button" data-remove-review-row title="移除部门过程" aria-label="移除部门过程"><i data-lucide="trash-2"></i></button></div>`;
+  const process = dept.process || 'management';
+  const name = dept.name ?? noticeDepartmentDefaults[process] ?? '';
+  return `<div class="review-department" data-review-department data-previous-process="${escapeHtml(process)}"><input type="checkbox" name="dept_enabled" ${dept.enabled===false?'':'checked'} aria-label="启用部门过程" title="启用部门过程">${reviewSelect('dept_process','承担过程',Object.entries(noticeProcesses),process)}${reviewInput('dept_name','部门名称',name,'text',true)}<button type="button" class="icon-button" data-remove-review-row title="移除部门过程" aria-label="移除部门过程"><i data-lucide="trash-2"></i></button></div>`;
+}
+
+function updateNoticeDepartmentRow(row) {
+  const enabled = row.querySelector('[name="dept_enabled"]').checked;
+  row.querySelector('[name="dept_name"]').disabled = !enabled;
+  row.querySelector('[name="dept_process"]').disabled = !enabled;
+  row.classList.toggle('is-disabled',!enabled);
 }
 
 function noticeAuditorRow(a = {}) {
@@ -34,6 +44,9 @@ function openNoticeReview(draft) {
   noticeDraft = structuredClone(draft);
   const p = noticeDraft.project;
   const systems = normalizeSystemCodes(p.audit_systems).filter(s=>NOTICE_SYSTEMS[s]);
+  const existingDepartments = draft.departmentSettings || draft.departments || [];
+  const useDefaultDepartments = existingDepartments.length===0;
+  const departments = useDefaultDepartments ? Object.entries(noticeDepartmentDefaults).map(([process,name])=>({process,name})) : existingDepartments;
   const form = document.getElementById('notice-review-form');
   form.innerHTML = `<header class="notice-review-header"><div><h2 id="notice-review-title">通知书复核</h2><p>${escapeHtml(draft.fileName || '项目资料')}</p></div><button type="button" class="icon-button" id="notice-review-close" aria-label="关闭复核" title="关闭复核"><i data-lucide="x"></i></button></header>
     <div class="notice-review-body">
@@ -53,7 +66,7 @@ function openNoticeReview(draft) {
         ${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>`<div class="review-system-fields" data-review-system="${s}" ${systems.includes(s)?'':'hidden'}><h4>${k.toUpperCase()} 体系</h4><div class="review-grid">${reviewInput(`contract_${k}`,'合同编号',p[`contract_${k}`],'text',true)}${reviewInput(`criteria_${k}`,'标准及版本',p[`criteria_${k}`],'text',true)}${reviewInput(`scope_${k}`,'本体系专业代码',p[`scope_${k}`] || p.industry_code,'text',true)}${reviewText(`scope_text_${k}`,'正式认证范围',p[`scope_text_${k}`],true)}</div></div>`).join('')}
       </section>
       <section class="notice-review-section"><div class="review-section-heading"><h3>审核组</h3><button type="button" class="btn" id="review-add-auditor"><i data-lucide="user-plus"></i>添加人员</button></div><div id="review-auditors">${draft.auditors.map(noticeAuditorRow).join('')}</div></section>
-      <section class="notice-review-section"><div class="review-section-heading"><h3>部门与承担过程</h3><button type="button" class="btn" id="review-add-department"><i data-lucide="plus"></i>添加部门过程</button></div><div id="review-departments">${draft.departments.map(noticeDepartmentRow).join('')}</div></section>
+      <section class="notice-review-section" id="notice-department-settings"><div class="review-section-heading"><h3>部门名称${useDefaultDepartments?'<span class="department-default-status">默认建议 · 待确认</span>':''}</h3><button type="button" class="btn" id="review-add-department"><i data-lucide="plus"></i>添加部门过程</button></div><div id="review-departments">${departments.map(noticeDepartmentRow).join('')}</div></section>
       <section class="notice-review-section"><h3>时间安排</h3><div class="review-grid">
         ${reviewInput('stage2_start_date','开始日期',p.stage2_start_date,'date',true)}${reviewInput('stage2_start_time','首日开始',p.stage2_start_time,'time',true)}
         ${reviewInput('stage2_end_date','结束日期',p.stage2_end_date,'date',true)}${reviewInput('stage2_end_time','末日结束',p.stage2_end_time,'time',true)}
@@ -71,11 +84,22 @@ function openNoticeReview(draft) {
   });
   form.querySelectorAll('[name="review_system"]').forEach(el=>el.addEventListener('change',toggleSystems));
   toggleSystems();
-  form.querySelector('#review-add-department').onclick = () => { document.getElementById('review-departments').insertAdjacentHTML('beforeend',noticeDepartmentRow()); lucide.createIcons(); document.querySelector('#review-departments > :last-child input').focus(); };
+  form.querySelector('#review-add-department').onclick = () => { document.getElementById('review-departments').insertAdjacentHTML('beforeend',noticeDepartmentRow()); lucide.createIcons(); document.querySelector('#review-departments > :last-child [name="dept_name"]').focus(); };
   form.querySelector('#review-add-auditor').onclick = () => { document.getElementById('review-auditors').insertAdjacentHTML('beforeend',noticeAuditorRow()); lucide.createIcons(); };
   form.querySelector('#review-add-travel').onclick = () => { document.getElementById('review-travels').insertAdjacentHTML('beforeend',noticeTravelRow()); lucide.createIcons(); };
   form.querySelector('#notice-review-close').onclick = form.querySelector('#notice-review-cancel').onclick = () => document.getElementById('notice-review').close();
   form.onclick = event => event.target.closest('[data-remove-review-row]')?.parentElement.remove();
+  form.querySelectorAll('[data-review-department]').forEach(updateNoticeDepartmentRow);
+  form.onchange = event => {
+    const row = event.target.closest('[data-review-department]');
+    if (!row) return;
+    if (event.target.name==='dept_enabled') updateNoticeDepartmentRow(row);
+    if (event.target.name==='dept_process') {
+      const name = row.querySelector('[name="dept_name"]');
+      if (!name.value.trim() || name.value===noticeDepartmentDefaults[row.dataset.previousProcess]) name.value=noticeDepartmentDefaults[event.target.value] || '';
+      row.dataset.previousProcess=event.target.value;
+    }
+  };
   form.onsubmit = confirmNoticeReview;
   lucide.createIcons();
   document.getElementById('notice-review').showModal();
@@ -96,8 +120,10 @@ function confirmNoticeReview(event) {
       if (!/14001\s*[:：-]?\s*(2015|2026)|24001-2016/.test(project.criteria_e)) throw new Error('请明确环境标准版本：ISO 14001:2015 或 ISO 14001:2026。');
       project.ems_version = /14001\s*[:：-]?\s*2026/.test(project.criteria_e) ? '2026' : '2015';
     }
-    const departments = [...form.querySelectorAll('[data-review-department]')].map((row,i)=>({id:`notice_dept_${i+1}`,name:value(row,'dept_name'),process:value(row,'dept_process'),clauseIds:[],auditorIds:[]}));
+    const departmentSettings = [...form.querySelectorAll('[data-review-department]')].map(row=>({name:value(row,'dept_name'),process:value(row,'dept_process'),enabled:row.querySelector('[name="dept_enabled"]').checked}));
+    const departments = departmentSettings.filter(dept=>dept.enabled).map((dept,i)=>({id:`notice_dept_${i+1}`,name:dept.name,process:dept.process,clauseIds:[],auditorIds:[]}));
     if (!departments.length) throw new Error('请补充实际部门及承担过程。通知书没有部门信息，不能沿用演示部门。');
+    if (departments.some(dept=>!dept.name)) throw new Error('请填写已启用过程的实际部门名称。');
     const auditors = [...form.querySelectorAll('[data-review-auditor]')].map(row=>{
       const code = value(row,'auditor_code').toUpperCase(), role = value(row,'auditor_role');
       const professionalCodes = Object.fromEntries(systems.map(s=>[s,value(row,`auditor_${NOTICE_SYSTEMS[s]}`)]));
@@ -124,7 +150,7 @@ function confirmNoticeReview(event) {
     }
     const phase = project.stage2_audit_type==='初次认证第一阶段' ? 'stage1' : 'stage2';
     if (phase==='stage1') for (const key of ['start_date','end_date','start_time','end_time','person_days','audit_type']) project[`stage1_${key}`]=project[`stage2_${key}`];
-    const plan = {project,departments,auditors,mappings:[],sourceType:'task_notice'};
+    const plan = {project,departments,departmentSettings,auditors,mappings:[],sourceType:'task_notice'};
     const backup = {state:structuredClone(state),presets:structuredClone(phasePresets),fields:Object.fromEntries(['company','scope','ems-version',...phaseFieldIds].map(id=>[id,document.getElementById(id).value]))};
     try {
       state.activePhase=phase;
