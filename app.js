@@ -921,7 +921,8 @@ function buildSegments(meetings = buildMeetingPlan().meetings) {
     const date = addDays(startDate, day);
     const internal = meetings.find(m => m.kind === "internal" && m.date === date);
     const workEnd = Math.min(end - 60, internal?.absStart ?? end - 90);
-    for (const [left, right] of [[510, lunchStart], [lunchStart + lunch, 1020]]) {
+    const dayStart = day===0 ? Math.min(510,start) : 510;
+    for (const [left, right] of [[dayStart, lunchStart], [lunchStart + lunch, 1020]]) {
       segments.push({ date, absStart: Math.max(day * 1440 + left, start + 30), absEnd: Math.min(day * 1440 + right, workEnd) });
     }
   }

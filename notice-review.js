@@ -3,11 +3,40 @@ const noticeProcesses = {management:'体系管理',admin:'行政管理',sales:'�
 const noticeDepartmentDefaults = {sales:'市场部',operation:'生产部',purchase:'市场部',quality:'技术部',admin:'综合部',finance:'财务部',management:'管理层'};
 
 function reviewInput(key, label, value = '', type = 'text', required = false) {
-  return `<label>${escapeHtml(label)}${required ? '<span class="required-mark">*</span>' : ''}<input name="${key}" type="${type}" value="${escapeHtml(value ?? '')}" ${required?'required':''} ${type==='number'?`min="0" step="${key.endsWith('person_days')?'0.01':'0.25'}"`:''}></label>`;
+  return `<label>${escapeHtml(label)}${required ? '<span class="required-mark">*</span>' : ''}<input name="${key}" type="${type}" value="${escapeHtml(value ?? '')}" ${required?'required':''} ${type==='number'?`min="0" step="${key.endsWith('person_days')?'0.01':key==='lunch_hours'?'any':'0.25'}"`:''}></label>`;
 }
 
 function reviewText(key, label, value = '', required = false) {
   return `<label class="review-wide">${escapeHtml(label)}${required?'<span class="required-mark">*</span>':''}<textarea name="${key}" rows="2" ${required?'required':''}>${escapeHtml(value ?? '')}</textarea></label>`;
+}
+
+function reviewTimeInput(key, label, value, type, required = false) {
+  const info=noticeDraft.project.notice_time;
+  const source=info?.sources?.[key] || (/^shift_/.test(key) ? 'suggested' : value!=='' && value!=null ? 'notice' : '');
+  const suffix=info?.confirmed ? '已确认' : {notice:'通知书',suggested:'建议',manual:'已调整'}[source];
+  return reviewInput(key,label+(suffix ? '（'+suffix+'）' : ''),value,type,required).replace('<label>','<label data-time-field="'+key+'" data-time-label="'+label+'">');
+}
+
+function noticeReviewTimeValues(form) {
+  const p={...noticeDraft.project};
+  for (const key of ['stage2_start_date','stage2_end_date','stage2_start_time','stage2_end_time','lunch_start','lunch_hours','shift_date','shift_start','shift_audit_hours']) p[key]=form.elements.namedItem(key).value;
+  p.travel_intervals=[...form.querySelectorAll('[data-review-travel]')].map(row=>Object.fromEntries(['date','start','end','route'].map(key=>[key,row.querySelector('[name="travel_'+key+'"]').value])));
+  return p;
+}
+
+function updateNoticeShift(form, suggest = false) {
+  const enabled=form.elements.namedItem('review_shift_enabled').checked;
+  const fields=form.querySelector('#review-shift-fields');
+  fields.hidden=!enabled;
+  fields.querySelectorAll('input').forEach(el=>{el.disabled=!enabled;el.required=enabled;});
+  if (enabled && suggest) {
+    const p=noticeReviewTimeValues(form), suggestion=noticeShiftSuggestion(p);
+    for (const key of ['shift_date','shift_start','shift_audit_hours']) {
+      const input=form.elements.namedItem(key);
+      if (!input.value || Number(input.value)===0) input.value=suggestion[key] || (key==='shift_audit_hours' ? 1 : '');
+    }
+  }
+  form.querySelector('#review-shift-status').textContent=enabled ? (form.elements.namedItem('shift_start').value ? '待确认企业实际班次' : '当前时段无法自动安排倒班，请确认企业班次及审核窗口') : '';
 }
 
 function reviewSelect(key, label, options, value) {
@@ -67,12 +96,14 @@ function openNoticeReview(draft) {
       </section>
       <section class="notice-review-section"><div class="review-section-heading"><h3>审核组</h3><button type="button" class="btn" id="review-add-auditor"><i data-lucide="user-plus"></i>添加人员</button></div><div id="review-auditors">${draft.auditors.map(noticeAuditorRow).join('')}</div></section>
       <section class="notice-review-section" id="notice-department-settings"><div class="review-section-heading"><h3>部门名称${useDefaultDepartments?'<span class="department-default-status">默认建议 · 待确认</span>':''}</h3><button type="button" class="btn" id="review-add-department"><i data-lucide="plus"></i>添加部门过程</button></div><div id="review-departments">${departments.map(noticeDepartmentRow).join('')}</div></section>
-      <section class="notice-review-section"><h3>时间安排</h3><div class="review-grid">
-        ${reviewInput('stage2_start_date','开始日期',p.stage2_start_date,'date',true)}${reviewInput('stage2_start_time','首日开始',p.stage2_start_time,'time',true)}
-        ${reviewInput('stage2_end_date','结束日期',p.stage2_end_date,'date',true)}${reviewInput('stage2_end_time','末日结束',p.stage2_end_time,'time',true)}
-        ${reviewInput('stage2_person_days','批准总审核人日',p.stage2_person_days,'number',true)}${reviewInput('lunch_start','午休开始',p.lunch_start || '12:00','time',true)}${reviewInput('lunch_hours','午休时长（小时）',p.lunch_hours ?? 1,'number',true)}
-        ${reviewInput('shift_audit_hours','倒班审核时长（小时）',p.shift_audit_hours || 0,'number')}${reviewInput('shift_date','倒班审核日期',p.shift_date,'date')}${reviewInput('shift_start','倒班开始时间',p.shift_start,'time')}
-      </div><div class="review-section-heading"><h4>全组场所间转场（不计审核人日）</h4><button type="button" class="btn" id="review-add-travel"><i data-lucide="plus"></i>添加转场</button></div><div id="review-travels">${(p.travel_intervals || []).map(noticeTravelRow).join('')}</div></section>
+      <section class="notice-review-section" id="notice-time-settings"><h3>时间安排</h3><div class="review-grid">
+        ${reviewTimeInput('stage2_start_date','开始日期',p.stage2_start_date,'date',true)}${reviewTimeInput('stage2_start_time','首日开始',p.stage2_start_time,'time',true)}
+        ${reviewTimeInput('stage2_end_date','结束日期',p.stage2_end_date,'date',true)}${reviewTimeInput('stage2_end_time','末日结束',p.stage2_end_time,'time',true)}
+        ${reviewTimeInput('stage2_person_days','批准总审核人日',p.stage2_person_days,'number',true)}${reviewTimeInput('lunch_start','午休开始',p.lunch_start || '12:00','time',true)}${reviewTimeInput('lunch_hours','午休时长（小时）',p.lunch_hours ?? 1,'number',true)}
+      </div>${p.notice_time?.notes?.length && !p.notice_time.confirmed ? `<ul class="review-time-notes">${p.notice_time.notes.map(note=>`<li>${escapeHtml(note)}</li>`).join('')}</ul>` : ''}
+      <div class="review-shift-heading"><label><input type="checkbox" name="review_shift_enabled" ${p.shift_required || Number(p.shift_audit_hours)>0 ? 'checked' : ''} ${p.shift_required ? 'disabled' : ''}>倒班审核${p.shift_required ? '（通知书要求）' : ''}</label><span id="review-shift-status"></span></div>
+      <div class="review-grid" id="review-shift-fields">${reviewTimeInput('shift_audit_hours','倒班时长（小时）',p.shift_audit_hours || 1,'number',true)}${reviewTimeInput('shift_date','倒班日期',p.shift_date,'date',true)}${reviewTimeInput('shift_start','倒班开始',p.shift_start,'time',true)}</div>
+      <div class="review-section-heading"><h4>全组场所间转场（不计审核人日）</h4><button type="button" class="btn" id="review-add-travel"><i data-lucide="plus"></i>添加转场</button></div><p id="review-travel-status" class="review-time-status" hidden></p><div id="review-travels">${(p.travel_intervals || []).map(noticeTravelRow).join('')}</div></section>
       ${draft.rawText?`<details class="review-details"><summary>通知书原文</summary><pre class="notice-source-text">${escapeHtml(draft.rawText)}</pre></details>`:''}
       <label class="review-confirmation"><input type="checkbox" id="notice-reviewed" required>已核对资料、部门职责、专业能力、建议时间及待确认事项</label>
       <p id="notice-review-error" class="notice-review-error" role="alert"></p>
@@ -86,11 +117,26 @@ function openNoticeReview(draft) {
   toggleSystems();
   form.querySelector('#review-add-department').onclick = () => { document.getElementById('review-departments').insertAdjacentHTML('beforeend',noticeDepartmentRow()); lucide.createIcons(); document.querySelector('#review-departments > :last-child [name="dept_name"]').focus(); };
   form.querySelector('#review-add-auditor').onclick = () => { document.getElementById('review-auditors').insertAdjacentHTML('beforeend',noticeAuditorRow()); lucide.createIcons(); };
-  form.querySelector('#review-add-travel').onclick = () => { document.getElementById('review-travels').insertAdjacentHTML('beforeend',noticeTravelRow()); lucide.createIcons(); };
+  form.querySelector('#review-add-travel').onclick = () => {
+    const suggestion=noticeTravelSuggestion(noticeReviewTimeValues(form));
+    document.getElementById('review-travels').insertAdjacentHTML('beforeend',noticeTravelRow(suggestion));
+    const status=form.querySelector('#review-travel-status');
+    status.hidden=false;
+    status.textContent=suggestion.start ? '转场建议：30分钟，路线与实际耗时待确认。' : '当前工作时段没有合适的30分钟空档，请确认转场时段。';
+    lucide.createIcons();
+  };
   form.querySelector('#notice-review-close').onclick = form.querySelector('#notice-review-cancel').onclick = () => document.getElementById('notice-review').close();
   form.onclick = event => event.target.closest('[data-remove-review-row]')?.parentElement.remove();
   form.querySelectorAll('[data-review-department]').forEach(updateNoticeDepartmentRow);
+  updateNoticeShift(form);
   form.onchange = event => {
+    if (event.target.name==='review_shift_enabled') updateNoticeShift(form,true);
+    const timeLabel=event.target.closest('[data-time-field]');
+    if (timeLabel) {
+      noticeDraft.project.notice_time ||= {sources:{},notes:[]};
+      noticeDraft.project.notice_time.sources[timeLabel.dataset.timeField]='manual';
+      timeLabel.firstChild.textContent=timeLabel.dataset.timeLabel+'（已调整）';
+    }
     const row = event.target.closest('[data-review-department]');
     if (!row) return;
     if (event.target.name==='dept_enabled') updateNoticeDepartmentRow(row);
@@ -139,6 +185,9 @@ function confirmNoticeReview(event) {
     if (!(Number(project.stage2_person_days)>0)) throw new Error('批准审核人日必须大于零。');
     const lunch = Number(project.lunch_hours);
     if (lunch<0 || lunch>3 || parseTime(project.lunch_start)+lunch*60>1020) throw new Error('午休须在当日工作时段内，时长为 0–3 小时。');
+    if (!form.elements.namedItem('review_shift_enabled').checked) {
+      project.shift_audit_hours=0;project.shift_date='';project.shift_start='';
+    }
     const shift = Number(project.shift_audit_hours || 0);
     if (project.shift_required && shift<1) throw new Error('通知书要求倒班审核，请补充至少 1 小时的安排。');
     if (shift && (shift<1 || shift>8 || !project.shift_date || !project.shift_start || project.shift_start<'17:00' || parseTime(project.shift_start)+shift*60>1440 || project.shift_date<project.stage2_start_date || project.shift_date>project.stage2_end_date)) throw new Error('请确认倒班日期及当日 17:00 后的时段，不少于 1 小时且不跨午夜。');
@@ -150,6 +199,7 @@ function confirmNoticeReview(event) {
     }
     const phase = project.stage2_audit_type==='初次认证第一阶段' ? 'stage1' : 'stage2';
     if (phase==='stage1') for (const key of ['start_date','end_date','start_time','end_time','person_days','audit_type']) project[`stage1_${key}`]=project[`stage2_${key}`];
+    if (project.notice_time) project.notice_time={...project.notice_time,confirmed:true};
     const plan = {project,departments,departmentSettings,auditors,mappings:[],sourceType:'task_notice'};
     const backup = {state:structuredClone(state),presets:structuredClone(phasePresets),fields:Object.fromEntries(['company','scope','ems-version',...phaseFieldIds].map(id=>[id,document.getElementById(id).value]))};
     try {

@@ -1372,6 +1372,12 @@ body.preview-open { overflow: hidden; }
 .notice-review h3 { font-size: 16px; margin: 0 0 14px; }
 .notice-review h4 { font-size: 13px; margin: 14px 0 8px; }
 .review-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px 18px; }
+.review-grid[hidden] { display: none; }
+.review-time-notes { margin: 12px 0; padding-left: 18px; font-size: 12px; line-height: 1.7; color: #815611; }
+.review-shift-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 18px 0 12px; }
+.notice-review .review-shift-heading label { flex-direction: row; align-items: center; }
+#review-shift-status, .review-time-status { color: #815611; font-size: 12px; line-height: 1.6; }
+#notice-time-settings .review-section-heading .btn { flex-shrink: 0; white-space: nowrap; }
 .notice-review label { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #48515c; position: relative; min-width: 0; }
 .notice-review input:not([type=checkbox]), .notice-review select, .notice-review textarea { width: 100%; min-width: 0; box-sizing: border-box; padding: 8px 10px; min-height: 36px; font: inherit; font-size: 13px; color: #23272f; border: 1px solid #cdd3da; border-radius: 4px; background: #fff; }
 .notice-review input:focus, .notice-review textarea:focus, .notice-review select:focus { outline: 2px solid #b21e3540; outline-offset: 1px; border-color: #b21e35; }

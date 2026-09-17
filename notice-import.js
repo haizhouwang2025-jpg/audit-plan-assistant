@@ -93,13 +93,8 @@ function parseTaskNotice(rawText, fileName) {
   contact('联系人(?:[/／]职务)?', '认证领域|审核类型|认证标准', 'contact_name', 'contact_phone', 'contact_email');
   project.stage2_audit_type = /监审|监督/.test(project.audit_type_detail) ? '监督审核' : /再认证/.test(project.audit_type_detail) ? '再认证审核' : /第一阶段|一阶段/.test(project.audit_type_detail) ? '初次认证第一阶段' : /第二阶段|二阶段/.test(project.audit_type_detail) ? '初次认证第二阶段' : '';
   const datesText = between(/审核日期\s*[:：]/, '申请评审补充说明|审核策划补充说明|2[.、．]审核组');
-  const dates = [...datesText.matchAll(/(20\d{2})\s*[年/.-]\s*(\d{1,2})\s*[月/.-]\s*(\d{1,2})\s*日?\s*(上午|下午)?\s*(\d{1,2}:\d{2})?/g)];
   const iso = m => `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
-  project.stage2_start_date = dates[0] ? iso(dates[0]) : '';
-  project.stage2_end_date = dates[1] ? iso(dates[1]) : project.stage2_start_date;
-  project.stage2_start_time = dates[0]?.[5] || (dates[0]?.[4] === '下午' ? '13:00' : '08:30');
-  project.stage2_end_time = dates[1]?.[5] || (dates[1]?.[4] === '上午' ? '12:00' : '17:00');
-  if (!dates[0]?.[5] || !dates[1]?.[5]) warnings.push('通知书未列出完整起止时刻；当前时刻为建议值，请确认。');
+  readNoticeTimeRange(project,datesText,text);
   project.stage2_person_days = text.match(/总现场审核(?:时间|人日)\s*[:：]\s*([\d.]+)\s*人日/)?.[1] || '';
   const previous = text.match(/上一次审核结束日期\s*[:：]\s*(20\d{2})[年/.-](\d{1,2})[月/.-](\d{1,2})/);
   project.coverage_start_date = previous ? iso(previous) : '';
@@ -107,7 +102,7 @@ function parseTaskNotice(rawText, fileName) {
   project.audit_method = /审核方式\s*[:：]\s*[■☑✓√]\s*现场审核/.test(text) ? '现场审核' : '';
   project.shift_required = /[■☑✓√]\s*针对倒班/.test(text);
   project.outsource_visit = /[■☑✓√]\s*针对外包/.test(text) ? '是' : '否';
-  if (project.shift_required) warnings.push('通知书要求倒班审核，请补充日期、开始时间和时长。');
+  if (project.shift_required) warnings.push('通知书要求倒班审核，请确认企业实际班次及建议时段。');
   const otherRegistered = project.application_notes.match(/注册地址是\s*[:：]?\s*([^，,。\n]+)/)?.[1]?.trim();
   const otherAddress = project.application_notes.match(/实际经营地址是\s*[:：]?\s*([^，,。\n]+)/)?.[1]?.trim();
   const addressConflict = Boolean((otherRegistered && otherRegistered!==project.registered_address) || (otherAddress && otherAddress!==project.address));
@@ -134,7 +129,7 @@ function parseTaskNotice(rawText, fileName) {
     auditors.push({id:cells[0],code:cells[0],name:cells[1],role,registration:cells[3],professionalCodes,professional:codes.length>0,independent:!['技术专家','实习'].includes(role),employer:cells[5] || '',fullTime:cells[6] || '',phone:cells[7] || ''});
   }
   if (!auditors.length) warnings.push('未可靠读取审核组表格，请补充人员；未沿用演示审核员。');
-  project.lunch_start = '12:00'; project.lunch_hours = 1;
   project.travel_intervals = [];
+  suggestNoticeTimes(project,auditors);
   return {project,auditors,departments:[],mappings:[],sourceType:'task_notice',fileName,rawText:text,warnings,addressConflict};
 }
