@@ -18,7 +18,7 @@ async function readTaskNotice(file) {
     const paragraphText = p => elementsByLocalName(p, 't').filter(t => !t.closest('del')).map(t => t.textContent).join('');
     text = [...body.children].map(element => {
       if (element.localName === 'tbl') return [...element.children].filter(el => el.localName === 'tr').map(row =>
-        [...row.children].filter(el => el.localName === 'tc').map(cell => elementsByLocalName(cell, 'p').map(paragraphText).join('\n')).join('\t')
+        [...row.children].filter(el => el.localName === 'tc').map(cell => elementsByLocalName(cell, 'p').map(paragraphText).join(' ')).join('\t')
       ).join('\n');
       return paragraphText(element);
     }).join('\n');
@@ -50,7 +50,7 @@ function parseTaskNotice(rawText, fileName) {
     company_name: ['受审核方名称|受审核组织名称', '合同编号|注册地址'],
     registered_address: ['注册地址', '经营地址|实际经营地址'],
     address: ['(?:^|\n)[\t ]*(?:经营地址|实际经营地址)', '管理者代表|联系人'],
-    changes: ['变更事项', '证书状态|审核范围|认证范围'],
+    changes: ['变更事项', '证书状态|上一次审核结束日期|审核范围|认证范围'],
     industry_code: ['专业代码', '风险级别|认可标识|规模人数'],
     audit_type_detail: ['认证领域和审核类型', '其他[:：]|认证标准|审核标准'],
     application_notes: ['申请评审补充说明', '审核策划补充说明|2[.、．]审核组'],
@@ -108,26 +108,8 @@ function parseTaskNotice(rawText, fileName) {
   const addressConflict = Boolean((otherRegistered && otherRegistered!==project.registered_address) || (otherAddress && otherAddress!==project.address));
   if (addressConflict) warnings.push('地址冲突：基本信息/变更事项与补充说明中另列地址，请核实最终注册地址及经营地址。');
   if (/■|☑/.test(between('多场所抽样', '审核时间'))) warnings.push('涉及多场所抽样，请在场所安排中补充实际场所和人员路线，正式输出前仍需核对。');
-  const groupText = between(/2[.、．]\s*审核组[^\n]*/, /组内见证安排|3[.、．]\s*其他说明/);
-  const auditors = [];
-  const groupLines = groupText.includes('\t') ? groupText.split('\n') : [...groupText.matchAll(/(?:^|\n)\s*[A-Z]\s+\S+\s+(?:[QES]+\s*[:：]\s*)?(?:组长|组员|技术专家|实习审核员|实习)/g)].map((m,i,all)=>groupText.slice(m.index,all[i+1]?.index ?? groupText.length).replace(/\s+/g,' ').trim());
-  for (const line of groupLines) {
-    let cells = line.split('\t').map(s => s.trim());
-    if (cells.length < 5) {
-      const m = line.trim().match(/^([A-Z])\s+(\S+)\s+((?:[QES]+\s*[:：]\s*)?(?:组长|组员|技术专家|实习审核员|实习))\s+(.+)$/);
-      if (!m) continue;
-      const rest = m[4].replace(/\s*-\s*/g,'-').replace(/\(\s*([QES]+)\s*\)/g,'($1)');
-      const professional = rest.match(/\d{2}(?:\.\d{2}){1,2}\s*[(（][QES]+[)）]/g)?.join(';') || '';
-      cells = [m[1],m[2],m[3],rest.split(/\d{2}\.\d{2}/)[0].trim(),professional,'','',rest.match(/1\d{10}/)?.[0] || ''];
-    }
-    if (!/^[A-Z]$/.test(cells[0]) || !cells[1] || !/组长|组员|专家|实习/.test(cells[2])) continue;
-    const role = /实习/.test(cells[2]) ? '实习' : /专家/.test(cells[2]) ? '技术专家' : /组长/.test(cells[2]) ? '组长' : '组员';
-    const professionalCodes = {QMS:'',EMS:'',OHSMS:''};
-    const codes = [...cells[4].matchAll(/(\d{2}(?:\.\d{2}){1,2})\s*[(（]([QES]+)[)）]/g)];
-    codes.forEach(m => [...m[2]].forEach(c => { const s = {Q:'QMS',E:'EMS',S:'OHSMS'}[c]; professionalCodes[s] = [professionalCodes[s],m[1]].filter(Boolean).join(';'); }));
-    if (cells[4] && !codes.length) warnings.push(`${cells[1]}的专业代码未明确分体系，请人工填写对应能力，未自动授权。`);
-    auditors.push({id:cells[0],code:cells[0],name:cells[1],role,registration:cells[3],professionalCodes,professional:codes.length>0,independent:!['技术专家','实习'].includes(role),employer:cells[5] || '',fullTime:cells[6] || '',phone:cells[7] || ''});
-  }
+  const groupText = between(/(?:审核组长[、，,\s]*审核组成员|\d+[.、．]\s*审核组)[^\n]*/, /组内见证安排|\d+[.、．]\s*其他说明/);
+  const auditors = parseNoticeAuditors(groupText,warnings);
   if (!auditors.length) warnings.push('未可靠读取审核组表格，请补充人员；未沿用演示审核员。');
   project.travel_intervals = [];
   suggestNoticeTimes(project,auditors);

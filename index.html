@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#b21e35">
   <title>海德认证 审核计划辅助系统</title>
-  <link rel="stylesheet" href="styles.css?v=20260917-time-defaults">
+  <link rel="stylesheet" href="styles.css?v=20260917-optimization2">
   <link rel="icon" href="assets/head-certification-logo.png" type="image/png">
 </head>
 <body>
@@ -91,7 +91,7 @@
                 <input id="audit-days" type="number" min="1" max="60" step="1" value="2">
               </label>
               <label>
-                总审核人日
+                批准审核人日
                 <input id="person-days" type="number" min="0.5" max="200" step="0.01" value="4.0">
               </label>
               <label>首日开始时间<input id="audit-start-time" type="time" value="08:30"></label>
@@ -259,20 +259,24 @@
   </dialog>
   <div id="print-content" aria-hidden="true"></div>
   <dialog id="notice-review" class="notice-review" aria-labelledby="notice-review-title"><form id="notice-review-form"></form></dialog>
+  <dialog id="clause-picker" class="notice-review clause-picker" aria-labelledby="clause-picker-title"></dialog>
 
   <script src="vendor/jszip/jszip.min.js"></script>
   <script src="vendor/lucide/lucide.min.js"></script>
   <script src="vendor/jsdoc/docToText.js"></script>
   <script src="haide-fields.js"></script>
   <script src="haide-template.js"></script>
-  <script src="haide-plan.js?v=20260917-notice-review"></script>
+  <script src="haide-plan.js?v=20260917-optimization2"></script>
   <script src="audit-rules.js"></script>
   <script src="plan-content.js?v=20260917-daily-communication"></script>
-  <script src="plan-meetings.js?v=20260917-daily-communication"></script>
+  <script src="plan-meetings.js?v=20260917-optimization2"></script>
   <script src="plan-travel.js?v=20260917-notice-review"></script>
   <script src="notice-time.js?v=20260917-time-defaults"></script>
-  <script src="notice-import.js?v=20260917-time-defaults"></script>
+  <script src="notice-auditors.js?v=20260917-optimization2"></script>
+  <script src="clause-picker.js?v=20260917-optimization2"></script>
+  <script src="plan-scheduler.js?v=20260917-optimization2"></script>
+  <script src="notice-import.js?v=20260917-optimization2"></script>
   <script src="notice-review.js?v=20260917-time-defaults"></script>
-  <script src="app.js?v=20260917-time-defaults"></script>
+  <script src="app.js?v=20260917-optimization2"></script>
 </body>
 </html>

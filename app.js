@@ -593,11 +593,13 @@ function createDepartmentBox(dept) {
     <div class="dept-head">
       <input class="dept-title-field" value="${escapeHtml(dept.name)}" aria-label="部门名称">
       <span class="dept-stats">${deptClauses.length} 项 / ${workload.toFixed(1)}</span>
+      <button type="button" class="icon-button dept-clause-button" title="添加 / 调整条款" aria-label="${escapeHtml(dept.name)} 添加或调整条款"><i data-lucide="list-plus"></i></button>
     </div>
     <div class="dept-processes">${escapeHtml((dept.processLabels || []).join(" / "))}</div>
     <div class="dept-auditors" aria-label="审核人员"></div>
     <div class="drop-area clause-list" data-dept-id="${escapeHtml(dept.id)}"></div>
   `;
+  box.querySelector('.dept-clause-button').addEventListener('click',()=>openClausePicker(dept.id));
   box.querySelector(".dept-title-field").addEventListener("change", (event) => {
     dept.name = event.target.value.trim() || dept.name;
     render();
@@ -630,9 +632,11 @@ function createDepartmentBox(dept) {
   const drop = box.querySelector(".drop-area");
   makeDropArea(drop);
   if (!deptClauses.length) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "空部门";
+    const empty = document.createElement("button");
+    empty.type = "button";
+    empty.className = "empty-state empty-clause-button";
+    empty.innerHTML = '<i data-lucide="plus"></i>添加条款';
+    empty.addEventListener('click',()=>openClausePicker(dept.id));
     drop.appendChild(empty);
   } else {
     groupedTiles(deptClauses, dept).forEach((clause) => drop.appendChild(createClauseTile(clause, dept.id)));
@@ -862,6 +866,8 @@ function addDepartment() {
   state.departments.push({ id, name, auditorIds: [] });
   input.value = "";
   render();
+  generateSchedule();
+  openClausePicker(id);
 }
 
 function addAuditor() {
@@ -929,56 +935,6 @@ function buildSegments(meetings = buildMeetingPlan().meetings) {
   return excludeTravelTime(segments.filter((segment) => segment.absEnd > segment.absStart));
 }
 
-function findSegmentAtOrAfter(segments, cursor) {
-  return segments.find((segment) => cursor < segment.absEnd) || null;
-}
-
-function normalizeCursorToSegment(segment, cursor) {
-  return Math.max(cursor, segment.absStart);
-}
-
-function roundToQuarter(hours) {
-  return Math.max(0.5, Math.floor(hours * 4) / 4);
-}
-
-function buildDepartmentDurations(mode, meetings = buildMeetingPlan().meetings) {
-  const selectedDepartments = state.departments
-    .map((dept) => {
-      const { clauses, workload } = getDepartmentWorkload(dept);
-      return { dept, clauses, workload };
-    })
-    .filter((item) => item.clauses.length);
-
-  const personDays = Math.max(0.5, Number(document.getElementById("person-days").value || 1));
-  const meetingPersonHours = countedPersonHours(meetings);
-  const shift = getShiftAssignment();
-  const shiftPersonHours = shift ? shift.minutes / 60 * shift.auditorIds.filter((id) => isIndependentAuditor(getAuditor(id))).length : 0;
-  const availablePersonHours = Math.max(0, personDays * 8 - meetingPersonHours - shiftPersonHours);
-
-  const tasks = selectedDepartments.map((item) => {
-    const assignedIds = mode === "together" ? state.auditors.map((auditor) => auditor.id) : item.dept.auditorIds;
-    return { ...item, assignedIds };
-  });
-  const loads = {};
-  tasks.forEach((item) => item.assignedIds.filter((id) => isIndependentAuditor(getAuditor(id))).forEach((id) => { loads[id] = (loads[id] || 0) + item.workload; }));
-  const budget = availablePersonHours / Math.max(1, Object.keys(loads).length);
-  const durations = tasks.map((item) => {
-    const shares = item.assignedIds.filter((id) => loads[id]).map((id) => budget * item.workload / loads[id]);
-    const hours = shares.length ? Math.min(...shares) : 0;
-    return { ...item, rawMinutes: hours * 60, clockMinutes: hours > 0 ? Math.round(roundToQuarter(hours) * 60) : 0 };
-  });
-  const assignedMinutes = Object.fromEntries(Object.keys(loads).map((id) => [id, durations.filter((item) => item.assignedIds.includes(id)).reduce((sum, item) => sum + item.clockMinutes, 0)]));
-  const ranked = [...durations].sort((a, b) => (b.rawMinutes - b.clockMinutes) - (a.rawMinutes - a.clockMinutes));
-  ranked.forEach((item) => {
-    const counted = item.assignedIds.filter((id) => loads[id]);
-    if (counted.length && counted.every((id) => assignedMinutes[id] + 15 <= budget * 60 + 0.01)) {
-      item.clockMinutes += 15;
-      counted.forEach((id) => { assignedMinutes[id] += 15; });
-    }
-  });
-  return durations;
-}
-
 function clauseText(clauses) {
   return state.systems.map((system) => {
     const numbers = uniqueList(clauses.filter((clause) => clause.system === system).map((clause) => clause.number)).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
@@ -1017,54 +973,21 @@ function generateSchedule() {
   const mode = document.getElementById("team-mode").value;
   const meetingPlan = buildMeetingPlan();
   const segments = buildSegments(meetingPlan.meetings);
-  const allAuditorIds = state.auditors.map((auditor) => auditor.id);
-  const cursors = Object.fromEntries(allAuditorIds.map((id) => [id, segments[0]?.absStart || 0]));
   const travelPlan = buildTravelPlan();
   const rows = [...meetingPlan.meetings, ...travelPlan.rows];
   const warnings = [...meetingPlan.warnings, ...travelPlan.warnings];
   const lunchStart = parseTime(document.getElementById("lunch-start").value || "12:00");
   const lunchHours = Number(document.getElementById("lunch-hours").value);
   if (lunchStart<510 || lunchHours<0 || lunchHours>3 || lunchStart+lunchHours*60>1020) warnings.push("午休起止时间须位于当日 08:30–17:00 之间，请调整。");
-  const workItems = buildDepartmentDurations(mode, meetingPlan.meetings);
-  workItems.forEach((item) => {
-    let remaining = item.clockMinutes;
-    const assignedIds = item.assignedIds;
-    if (!remaining) { warnings.push(`${item.dept.name} 尚未排定，批准审核人日不足以分配部门审核时间。`); return; }
-    if (!assignedIds.some((id) => isIndependentAuditor(getAuditor(id)))) {
-      warnings.push(`${item.dept.name} 缺少可独立主审人员，尚未排入日程。`);
-      return;
-    }
-    while (remaining > 0) {
-      const currentCursor = Math.max(...assignedIds.map((id) => cursors[id] ?? segments[0]?.absStart ?? 0));
-      const segment = findSegmentAtOrAfter(segments, currentCursor);
-      if (!segment) {
-        warnings.push(`${item.dept.name} 未能全部排入审核日期`);
-        break;
-      }
-      const start = normalizeCursorToSegment(segment, currentCursor);
-      const remainingInSegment = segment.absEnd - start;
-      const chunk = Math.min(remaining, remainingInSegment);
-      const end = start + chunk;
-      rows.push({
-        kind: "department", departmentId: item.dept.id,
-        date: segment.date,
-        time: `${formatTime(start)}-${formatTime(end)}`,
-        process: processText(item.dept.name, item.clauses),
-        clauses: clauseText(item.clauses),
-        auditorIds: assignedIds,
-        auditors: getAuditorDisplay(assignedIds)
-      });
-      assignedIds.forEach((id) => {
-        cursors[id] = end;
-      });
-      remaining -= chunk;
-    }
-  });
-
   const shiftHours = Number(document.getElementById("shift-hours").value || 0);
   const shift = getShiftAssignment();
-  if (shift) rows.push({ kind: "shift", date: shift.date, time: `${formatTime(shift.start)}-${shift.start + shift.minutes === 1440 ? "24:00" : formatTime(shift.start + shift.minutes)}`, process: `${shift.dept.name}：非正常办公班次审核`, clauses: clauseText(clausesForDepartment(shift.dept)), auditorIds: shift.auditorIds, auditors: getAuditorDisplay(shift.auditorIds) });
+  if (shift) {
+    const offset=(Date.parse(shift.date)-Date.parse(document.getElementById('start-date').value))/86400000*1440;
+    rows.push({ kind: "shift", date: shift.date, absStart:offset+shift.start, absEnd:offset+shift.start+shift.minutes, time: `${formatTime(shift.start)}-${shift.start + shift.minutes === 1440 ? "24:00" : formatTime(shift.start + shift.minutes)}`, process: `${shift.dept.name}：非正常办公班次审核`, clauses: clauseText(clausesForDepartment(shift.dept)), auditorIds: shift.auditorIds, auditors: getAuditorDisplay(shift.auditorIds) });
+  }
   else if (shiftHours) warnings.push(`倒班审核 ${shiftHours}h 尚未排定，请确认日期及非办公班次开始时间（不少于1h，当前支持当日17:00后且在审核起止范围内）。`);
+  const departments=fillDepartmentSchedule(mode,segments,rows);
+  rows.push(...departments.rows);warnings.push(...departments.warnings);
   if (!document.getElementById("start-date").value) warnings.push("审核开始日期待确认。");
 
   rows.sort((a, b) => {
@@ -1100,8 +1023,13 @@ function renderSchedule(warnings = []) {
   const personHours = countedPersonHours(state.scheduleRows);
   const targetHours = Math.max(0.5, Number(document.getElementById("person-days").value || 1)) * 8;
   const summary = document.getElementById("hours-summary");
-  if (Math.abs(personHours - targetHours) > 0.25) warnings.push(`已排 ${(personHours / 8).toFixed(2)} 人日，与目标 ${(targetHours / 8).toFixed(2)} 人日不一致，请调整人员或时间。`);
-  summary.textContent = `${(personHours / 8).toFixed(2)} / ${(targetHours / 8).toFixed(2)} 人日`;
+  if (personHours < targetHours-0.25) warnings.push(`已排 ${(personHours / 8).toFixed(2)} 人日，低于批准 ${(targetHours / 8).toFixed(2)} 人日，请确认人员及工作时段。`);
+  if (personHours > targetHours+0.25) {
+    const note=document.createElement('li');note.className='note schedule-warning';
+    note.textContent=`已按工作时段排满 ${(personHours / 8).toFixed(2)} 人日；批准 ${(targetHours / 8).toFixed(2)} 人日仅作对照，请组长核对。`;
+    document.getElementById('issues-list').appendChild(note);
+  }
+  summary.textContent = `已排 ${(personHours / 8).toFixed(2)} / 批准 ${(targetHours / 8).toFixed(2)} 人日`;
   summary.className = `tag ${warnings.length ? "warn" : "good"}`;
 
   if (warnings.length) {

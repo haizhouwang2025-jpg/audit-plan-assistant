@@ -12,7 +12,10 @@
 !/plan-content.js
 !/plan-meetings.js
 !/plan-travel.js
+!/plan-scheduler.js
+!/clause-picker.js
 !/notice-import.js
+!/notice-auditors.js
 !/notice-time.js
 !/notice-review.js
 !/styles.css

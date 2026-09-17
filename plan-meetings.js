@@ -33,8 +33,8 @@ function countedPersonHours(rows) {
     if (row.countsTowardAudit === false) return sum;
     const [start, end] = row.time.split("-");
     const count = row.auditorIds.filter(id => isIndependentAuditor(getAuditor(id))).length;
-    return sum + (parseTime(end) - parseTime(start)) / 60 * count;
-  }, 0);
+    return sum + (parseTime(end) - parseTime(start)) * count;
+  }, 0) / 60;
 }
 
 function scheduleConflictWarnings(rows) {
