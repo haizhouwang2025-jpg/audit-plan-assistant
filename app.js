@@ -599,6 +599,7 @@ function getDepartmentWorkload(dept) {
 function createDepartmentBox(dept) {
   const { clauses: deptClauses, workload } = getDepartmentWorkload(dept);
   const box = document.createElement("article");
+  const visits=(state.travelIntervals || []).filter(t=>t.kind==='site_visit' && t.departments?.includes(dept.name));
   box.className = "dept-box";
   box.innerHTML = `
     <div class="dept-head">
@@ -607,12 +608,22 @@ function createDepartmentBox(dept) {
       <button type="button" class="icon-button dept-clause-button" title="添加 / 调整条款" aria-label="${escapeHtml(dept.name)} 添加或调整条款"><i data-lucide="list-plus"></i></button>
     </div>
     <div class="dept-processes">${escapeHtml((dept.processLabels || []).join(" / "))}</div>
+    ${visits.length ? `<button type="button" class="dept-site-button" title="修改场所审核安排"><i data-lucide="map-pin"></i>${escapeHtml(visits.map(t=>t.route).join(' / '))}</button>` : ''}
     <div class="dept-auditors" aria-label="审核人员"></div>
     <div class="drop-area clause-list" data-dept-id="${escapeHtml(dept.id)}"></div>
   `;
   box.querySelector('.dept-clause-button').addEventListener('click',()=>openClausePicker(dept.id));
+  box.querySelector('.dept-site-button')?.addEventListener('click',()=>{
+    reopenNoticeReview();
+    document.querySelector('[data-review-travel]')?.scrollIntoView({block:'center'});
+  });
   box.querySelector(".dept-title-field").addEventListener("change", (event) => {
+    const oldName=dept.name;
     dept.name = event.target.value.trim() || dept.name;
+    for (const visit of visits) visit.departments=visit.departments.map(name=>name===oldName ? dept.name : name);
+    for (const list of [state.rawImportedPlan?.departments,state.rawImportedPlan?.departmentSettings]) {
+      for (const item of list || []) if (item.name===oldName) item.name=dept.name;
+    }
     render();
     generateSchedule();
   });
@@ -623,7 +634,7 @@ function createDepartmentBox(dept) {
     const chip = document.createElement("label");
     chip.className = `auditor-chip ${auditor.professional ? "is-professional" : ""}`;
     chip.innerHTML = `
-      <input id="${escapeHtml(id)}" type="checkbox" ${dept.auditorIds.includes(auditor.id) ? "checked" : ""}>
+      <input id="${escapeHtml(id)}" type="checkbox" ${dept.auditorIds.includes(auditor.id) ? "checked" : ""} ${visits.length ? 'disabled title="人员由场所审核安排指定"' : ''}>
       <span class="auditor-avatar-mini">${escapeHtml(auditor.code)}</span>
       <span class="chip-name">${escapeHtml(auditor.name)}</span>
       <span class="chip-role">${escapeHtml(getAuditorRoleText(auditor))}</span>
@@ -946,7 +957,7 @@ function buildSegments(meetings = buildMeetingPlan().meetings) {
       segments.push({ date, absStart: Math.max(day * 1440 + left, start + 30), absEnd: Math.min(day * 1440 + right, workEnd) });
     }
   }
-  return excludeTravelTime(segments.filter((segment) => segment.absEnd > segment.absStart));
+  return segments.filter((segment) => segment.absEnd > segment.absStart);
 }
 
 function clauseText(clauses) {
@@ -997,10 +1008,16 @@ function generateSchedule() {
   const shift = getShiftAssignment();
   if (shift) {
     const offset=(Date.parse(shift.date)-Date.parse(document.getElementById('start-date').value))/86400000*1440;
-    rows.push({ kind: "shift", date: shift.date, absStart:offset+shift.start, absEnd:offset+shift.start+shift.minutes, time: `${formatTime(shift.start)}-${shift.start + shift.minutes === 1440 ? "24:00" : formatTime(shift.start + shift.minutes)}`, process: `${shift.dept.name}：非正常办公班次审核`, clauses: clauseText(clausesForDepartment(shift.dept)), auditorIds: shift.auditorIds, auditors: getAuditorDisplay(shift.auditorIds) });
+    const visits=travelPlan.visits.filter(visit=>visit.departments?.includes(shift.dept.name) && offset+shift.start>=visit.absStart && offset+shift.start+shift.minutes<=visit.absEnd);
+    const visit=visits.length===1 ? visits[0] : null;
+    const auditorIds=visit ? visit.auditorIds : shift.auditorIds;
+    if (siteAuditDepartments().has(shift.dept.name) && !visit) warnings.push('多场所倒班审核须完整落在对应场所的到达与返程出发之间，且明确唯一场所。');
+    rows.push({ kind: "shift", departmentId:shift.dept.id, siteVisitId:visit?.id || '', date: shift.date, absStart:offset+shift.start, absEnd:offset+shift.start+shift.minutes, time: `${formatTime(shift.start)}-${shift.start + shift.minutes === 1440 ? "24:00" : formatTime(shift.start + shift.minutes)}`, process: `${shift.dept.name}${visit ? '（'+visit.route+'）' : ''}：非正常办公班次审核`, clauses: clauseText(clausesForDepartment(shift.dept)), auditorIds, auditors: getAuditorDisplay(auditorIds) });
   }
   else if (shiftHours) warnings.push(`倒班审核 ${shiftHours}h 尚未排定，请确认日期及非办公班次开始时间（不少于1h，当前支持当日17:00后且在审核起止范围内）。`);
-  const departments=fillDepartmentSchedule(mode,segments,rows);
+  const sitePlan=buildSiteAuditPlan(segments,rows,travelPlan.visits);
+  rows.push(...sitePlan.rows);warnings.push(...sitePlan.warnings);
+  const departments=fillDepartmentSchedule(mode,segments,[...rows,...travelPlan.reservations]);
   rows.push(...departments.rows);warnings.push(...departments.warnings);
   if (!document.getElementById("start-date").value) warnings.push("审核开始日期待确认。");
 
@@ -1009,7 +1026,7 @@ function generateSchedule() {
     return parseTime(a.time.slice(0, 5)) - parseTime(b.time.slice(0, 5));
   });
   state.scheduleRows = rows;
-  renderSchedule([...warnings, ...scheduleConflictWarnings(rows)]);
+  renderSchedule([...warnings, ...scheduleConflictWarnings(rows), ...siteLocationWarnings(rows,travelPlan.visits)]);
 }
 
 function renderSchedule(warnings = []) {
@@ -1738,6 +1755,11 @@ function suggestAuditors() {
   const expertLeads = new Map();
   state.departments.forEach((dept) => {
     const clauses = clausesForDepartment(dept);
+    const visits=(state.travelIntervals || []).filter(t=>t.kind==='site_visit' && t.departments?.includes(dept.name));
+    if (visits.length) {
+      dept.auditorIds=uniqueList(visits.flatMap(t=>travelAuditorIds(t)).filter(id=>getAuditor(id)));
+      return;
+    }
     const required = uniqueList(clauses.filter((clause) => requiresProfessional(clause, dept)).map((clause) => clause.system));
     const candidates = auditors.filter(a=>clauses.every(clause=>isIndependentForSystem(a,clause.system))).sort((a, b) => {
       const score = (person) => required.filter((system) => professionalFor(person, system)).length * -100 +

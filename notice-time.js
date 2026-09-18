@@ -103,7 +103,7 @@ function noticeTravelSuggestion(project) {
     for (let minute=start;minute+30<=end;minute+=15) {
       const busy=[...(project.travel_intervals || [])];
       if (Number(project.shift_audit_hours)>0 && project.shift_date && project.shift_start) busy.push({date:project.shift_date,start:project.shift_start,end:formatTime(parseTime(project.shift_start)+Number(project.shift_audit_hours)*60)});
-      if (!busy.some(t=>t.date===date && minute<parseTime(t.end) && minute+30>parseTime(t.start))) return {date,start:formatTime(minute),end:formatTime(minute+30),route:''};
+      if (!busy.some(t=>t.kind==='site_visit' ? travelMinute(date,formatTime(minute),project.stage2_start_date)<travelMinute(t.returnDate || t.date,t.returnEnd,project.stage2_start_date) && travelMinute(date,formatTime(minute+30),project.stage2_start_date)>travelMinute(t.date,t.start,project.stage2_start_date) : t.date===date && minute<parseTime(t.end) && minute+30>parseTime(t.start))) return {date,start:formatTime(minute),end:formatTime(minute+30),route:''};
     }
   }
   return {};

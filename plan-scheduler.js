@@ -37,6 +37,7 @@ function fillDepartmentSchedule(mode, segments, fixedRows) {
   const allIds=state.auditors.map(a=>a.id);
   const free=Object.fromEntries(allIds.map(id=>[id,subtractScheduleIntervals(segments.map(part=>({...part})),fixedRows.filter(row=>row.auditorIds.includes(id)))]));
   for (const dept of state.departments) {
+    if (siteAuditDepartments().has(dept.name)) continue;
     const {clauses,workload}=getDepartmentWorkload(dept);
     if (!clauses.length) continue;
     const assignedIds=normalizeAuditorGroupIds(mode==='together' ? allIds : dept.auditorIds);
