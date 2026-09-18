@@ -4,6 +4,8 @@ function buildHaidePlanModel(options = {}) {
   const pending = (key, label) => text(key, `【待补充：${label}】`);
   const systems = state.systems.map((system) => ({ system, code: systemCatalog[system]?.code || system, suffix: { QMS: "q", EMS: "e", OHSMS: "s" }[system] }));
   const auditType = document.getElementById("audit-type").value;
+  const typeDetails=splitSystemValues(text('audit_type_detail'));
+  const commonType=Object.keys(typeDetails).length ? '' : text('audit_type_detail');
   const phase = state.activePhase === "stage1" ? "一阶段" : "本次";
   const date = document.getElementById("start-date").value;
   const end = date ? addDays(date, scheduleWindow().days - 1) : "";
@@ -27,7 +29,7 @@ function buildHaidePlanModel(options = {}) {
     registered_address: pending("registered_address","注册地址"), address: pending("address","经营地址"),
     management_representative: text("management_representative"), representative_phone: text("representative_phone"),
     contact_name: pending("contact_name","联系人"), contact_phone: pending("contact_phone","联系电话"), contact_email: text("contact_email"),
-    audit_types: state.activePhase === "stage1" ? systems.map(({code}) => `${code}：${auditType}`).join("\n") : text("audit_type_detail",systems.map(({code}) => `${code}：${auditType}`).join("\n")),
+    audit_types: systems.map(({system,code})=>`${code}：${state.activePhase==='stage1' ? auditType : typeDetails[system] || commonType || auditType}`).join('\n'),
     other_type: `其他：\n${yesNoToBoolean(project.restore_suspended)?"☑":"□"}暂停恢复`,
     changes: pending("changes","变更事项"),
     criteria: `1）${systems.map(({code,suffix}) => `${code}：${pending(`criteria_${suffix}`,"标准及版本")}`).join("\n")}\n2）受审核方管理体系文件\n3）适用的国家、行业及地方有关的法律法规及标准${text("criteria_extra")?"\n4）"+text("criteria_extra"):""}`,

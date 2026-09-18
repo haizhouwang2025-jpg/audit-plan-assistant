@@ -78,6 +78,7 @@ function openNoticeReview(draft) {
   const nsi=p.agency_id==='nsi';
   const systems = normalizeSystemCodes(p.audit_systems).filter(s=>NOTICE_SYSTEMS[s]);
   applyStandardDefaults(p,systems);
+  const projectCodes=splitNoticeProfessionalCodes(p.industry_code,systems,true);
   const existingDepartments = draft.departmentSettings || draft.departments || [];
   const useDefaultDepartments = existingDepartments.length===0;
   const departments = useDefaultDepartments ? Object.entries(noticeDepartmentDefaults).map(([process,name])=>({process,name})) : existingDepartments;
@@ -100,7 +101,7 @@ function openNoticeReview(draft) {
           ${nsi ? reviewInput('representative_email','客户代表邮箱',p.representative_email)+reviewText('special_types','特殊审核类型',p.special_types || '□暂停恢复；□认证范围扩大；□转换机构；□转换标准')+reviewText('other_purpose','其他审核目的（适用时）',p.other_purpose)+reviewText('planning_notes','通知书项目提示',p.planning_notes) : ''}
         </div>
         <details class="review-details"><summary>其他项目资料</summary><div class="review-grid">${reviewInput('management_representative','管理者代表',p.management_representative)}${reviewInput('representative_phone','管理者代表电话',p.representative_phone)}${reviewInput('contact_email','联系人邮箱',p.contact_email)}${reviewInput('audit_type_detail','各体系审核类型',p.audit_type_detail)}${reviewText('site_arrangements','多场所安排',p.site_arrangements)}${reviewText('outsource_details','外包现场安排',p.outsource_details)}${reviewSelect('outsource_visit','赴外包方现场',[['否','否'],['是','是']],p.outsource_visit || '否')}${reviewText('schedule_notes','日程补充说明',p.schedule_notes)}</div></details>
-        ${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>`<div class="review-system-fields" data-review-system="${s}" ${systems.includes(s)?'':'hidden'}><h4>${k.toUpperCase()} 体系</h4><div class="review-grid">${nsi ? '' : reviewInput(`contract_${k}`,'合同编号',p[`contract_${k}`])}${reviewInput(`criteria_${k}`,'标准及版本',p[`criteria_${k}`],'text',true)}${reviewInput(`scope_${k}`,'本体系专业代码',p[`scope_${k}`] || p.industry_code,'text',true)}${reviewText(`scope_text_${k}`,'正式认证范围',p[`scope_text_${k}`])}</div></div>`).join('')}
+        ${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>`<div class="review-system-fields" data-review-system="${s}" ${systems.includes(s)?'':'hidden'}><h4>${k.toUpperCase()} 体系</h4><div class="review-grid">${nsi ? '' : reviewInput(`contract_${k}`,'合同编号',p[`contract_${k}`])}${reviewInput(`criteria_${k}`,'标准及版本',p[`criteria_${k}`],'text',true)}${reviewInput(`scope_${k}`,'本体系专业代码',p[`scope_${k}`] ?? projectCodes[s],'text',true)}${reviewText(`scope_text_${k}`,'正式认证范围',p[`scope_text_${k}`])}</div></div>`).join('')}
       </section>
       <section class="notice-review-section"><div class="review-section-heading"><h3>审核组</h3><button type="button" class="btn" id="review-add-auditor"><i data-lucide="user-plus"></i>添加人员</button></div><div id="review-auditors">${draft.auditors.map(noticeAuditorRow).join('')}</div></section>
       <section class="notice-review-section" id="notice-department-settings"><div class="review-section-heading"><h3>部门名称${useDefaultDepartments?'<span class="department-default-status">默认建议 · 待确认</span>':''}</h3><button type="button" class="btn" id="review-add-department"><i data-lucide="plus"></i>添加部门过程</button></div><div id="review-departments">${departments.map(noticeDepartmentRow).join('')}</div></section>

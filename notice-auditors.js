@@ -1,9 +1,9 @@
 function noticeAuditorRoles(text) {
   const normalize=value=>/实习/.test(value) ? '实习' : /专家/.test(value) ? '技术专家' : value;
   const systemRoles={};
-  for (const m of text.matchAll(/(QMS|EMS|OHSMS|[QES][QES/、,]*)\s*[:：]\s*(组长|组员|技术专家|专家|实习审核员|实习)/g)) {
-    const labels={QMS:'Q',EMS:'E',OHSMS:'S'}[m[1]] || m[1];
-    for (const label of labels) if ('QES'.includes(label)) systemRoles[{Q:'QMS',E:'EMS',S:'OHSMS'}[label]]=normalize(m[2]);
+  for (const [system,value] of Object.entries(splitSystemValues(text))) {
+    const role=value.match(/组长|组员|技术专家|专家|实习审核员|实习/)?.[0];
+    if (role) systemRoles[system]=normalize(role);
   }
   const roles=Object.values(systemRoles);
   const role=['组长','组员','技术专家','实习'].find(value=>roles.includes(value)) || normalize(text.match(/组长|组员|技术专家|专家|实习审核员|实习/)?.[0] || '');
@@ -20,7 +20,27 @@ function noticeAuditorRoleLabel(auditor) {
   return [...groups].map(([role,codes])=>codes.join('/')+'：'+role).join('；');
 }
 
-function parseNoticeAuditors(groupText, warnings) {
+function splitNoticeProfessionalCodes(value, systems = [], allowCommon = false) {
+  const text=String(value || ''), result={QMS:'',EMS:'',OHSMS:''};
+  const codes=part=>[...new Set(part.match(/\b\d{2}(?:\.\d{2}){1,2}\b/g) || [])];
+  const add=(system,part)=>{result[system]=[...new Set([...result[system].split(';').filter(Boolean),...codes(part)])].join(';');};
+  // Remove postfix-labelled groups before prefix parsing so a preceding Q label cannot absorb E/S codes.
+  let hasPostfix=false;
+  const rest=text.replace(new RegExp('(\\d{2}(?:\\.\\d{2}){1,2}(?:\\s*[;；、,，]\\s*\\d{2}(?:\\.\\d{2}){1,2})*)\\s*[(（]\\s*('+STANDARD_LABEL_PATTERN+')\\s*[)）]','gi'),(match,part,label,offset)=>{
+    hasPostfix=true;
+    const preceding=new RegExp('('+STANDARD_LABEL_PATTERN+')\\s*[:：]\\s*$','i').test(text.slice(0,offset));
+    const list=codes(part), retained=preceding && list.length>1 ? list.slice(0,-1).join(';') : '';
+    if (retained) part=list.at(-1);
+    Object.keys(splitSystemValues(label+':')).forEach(system=>add(system,part));
+    return retained;
+  });
+  const labelled=splitSystemValues(rest);
+  Object.entries(labelled).forEach(([system,part])=>add(system,part));
+  if (!hasPostfix && !Object.keys(labelled).length && (allowCommon || systems.length===1)) systems.forEach(system=>add(system,text));
+  return result;
+}
+
+function parseNoticeAuditors(groupText, warnings, systems = []) {
   const headers={code:/^(代码|代号|人员代码)$/,name:/^(?:审核员|审核人员|人员)?姓名$/,role:/组内身份|组内职务|组内角色|担任角色|审核分工/,registration:/注册.*(?:证书|资格|编号|号码)|注册号|证书号/,professional:/^专业$|专业代码|专业类别|技术领域/,employer:/工作单位|所在单位/,fullTime:/专职|专兼职/,phone:/电话|手机/};
   // Word 97 tables may delimit every row with tabs instead of a newline.
   const starts=[...groupText.matchAll(/(?:^|[\n\t])[ \t]*[A-Z](?=[ \t])/g)];
@@ -46,20 +66,7 @@ function parseNoticeAuditors(groupText, warnings) {
       warnings.push('有审核组人员的代码、姓名或身份未完整识别，请对照通知书复核。');continue;
     }
     const {role,systemRoles}=noticeAuditorRoles(record.role);
-    const professionalCodes={QMS:'',EMS:'',OHSMS:''};
-    const add=(systems,code)=>[...systems].filter(c=>'QES'.includes(c)).forEach(c=>{
-      const system={Q:'QMS',E:'EMS',S:'OHSMS'}[c];
-      professionalCodes[system]=[...new Set([...professionalCodes[system].split(';').filter(Boolean),code])].join(';');
-    });
-    for (const m of record.professional.matchAll(/(\d{2}(?:\.\d{2}){1,2}(?:\s*[;；、,，]\s*\d{2}(?:\.\d{2}){1,2})*)\s*[(（]([QES/、,\s]+)[)）]/g)) {
-      for (const code of m[1].match(/\d{2}(?:\.\d{2}){1,2}/g)) add(m[2],code);
-    }
-    const labelled=[...record.professional.matchAll(/(QMS|EMS|OHSMS|[QES](?:[QES/、,]*))\s*[:：]/g)];
-    labelled.forEach((m,i)=>{
-      const label={QMS:'Q',EMS:'E',OHSMS:'S'}[m[1]] || m[1];
-      const part=record.professional.slice(m.index+m[0].length,labelled[i+1]?.index ?? record.professional.length);
-      for (const code of part.match(/\b\d{2}(?:\.\d{2}){1,2}\b/g) || []) add(label,code);
-    });
+    const professionalCodes=splitNoticeProfessionalCodes(record.professional,systems);
     const professional=Object.values(professionalCodes).some(Boolean);
     if (!record.registration && !['技术专家','实习'].includes(role)) warnings.push(record.name+'的注册号未读取到，请对照通知书复核。');
     if (record.professional && !professional && !/^(无|不适用|[-/／])$/.test(record.professional)) warnings.push(record.name+'的专业代码未明确分体系，请人工填写对应能力，未自动授权。');

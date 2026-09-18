@@ -57,27 +57,23 @@ function parseHaideNotice(rawText, fileName) {
     planning_notes: ['审核策划补充说明', '2[.、．]审核组']
   };
   for (const [key, [start, end]] of Object.entries(fields)) project[key] = between(start, end);
-  const labelled = value => {
-    const result = {};
-    const matches = [...value.matchAll(/\b(QMS|EMS|OHSMS|Q|E|S)\s*[:：]/gi)];
-    matches.forEach((m, i) => { result[{Q:'QMS',E:'EMS',S:'OHSMS'}[m[1].toUpperCase()] || m[1].toUpperCase()] = value.slice(m.index + m[0].length, matches[i+1]?.index ?? value.length).replace(/[;；\s]+$/, '').trim(); });
-    return result;
-  };
-  const criteriaBlock = between('认证标准|审核标准', '变更事项|证书状态|审核范围');
+  const criteriaBlock = between('认证标准|审核标准', '变更事项|证书状态|审核范围|认证范围');
   if (/27001|20000|50001|22000|13485|22301/.test(criteriaBlock)) throw new Error('当前通知书自动排程仅支持 QMS、EMS、OHSMS 及其组合，不能忽略通知书中的其他体系。');
-  const criteria = labelled(criteriaBlock);
-  const scopes = labelled(between('审核范围|认证范围', '对于MMS|对于EnMS|MMS认证级别|EnMS边界|专业代码|风险级别'));
-  const types = labelled(project.audit_type_detail);
-  const contracts = labelled(between('合同编号', '注册地址'));
-  const systems = Object.keys(NOTICE_SYSTEMS).filter(s => criteria[s] || scopes[s] || types[s]);
-  Object.assign(criteria,splitStandardCriteria(criteriaBlock,systems));
+  const scopeBlock = between('审核范围|认证范围', '对于MMS|对于EnMS|MMS认证级别|EnMS边界|专业代码|风险级别');
+  const contractBlock = between('合同编号', '注册地址');
+  const scopes = splitSystemValues(scopeBlock), types = splitSystemValues(project.audit_type_detail), contracts = splitSystemValues(contractBlock);
+  const detectedCriteria = splitStandardCriteria(criteriaBlock,[]);
+  const systems = Object.keys(NOTICE_SYSTEMS).filter(s => s in detectedCriteria || s in scopes || s in types || s in contracts);
+  const criteria = splitStandardCriteria(criteriaBlock,systems);
+  const projectCodes = splitNoticeProfessionalCodes(project.industry_code,systems,true);
   project.audit_systems = systems.join(',');
   for (const system of systems) {
     const suffix = NOTICE_SYSTEMS[system];
-    project[`contract_${suffix}`] = contracts[system] || '';
+    project[`contract_${suffix}`] = contracts[system] || (systems.length===1 && !Object.keys(contracts).length ? contractBlock : '');
     project[`criteria_${suffix}`] = criteria[system] || '';
-    project[`scope_text_${suffix}`] = scopes[system] || '';
-    project[`scope_${suffix}`] = (project.industry_code.match(/\b\d{2}(?:\.\d{2}){1,2}\b/g) || []).join(';');
+    project[`scope_text_${suffix}`] = scopes[system] || (systems.length===1 && !Object.keys(scopes).length ? scopeBlock : '');
+    project[`scope_${suffix}`] = projectCodes[system];
+    if (!projectCodes[system]) warnings.push(`${STANDARD_SYSTEMS[system].code} 体系项目专业代码未明确，请在复核页补充，未套用其他体系代码。`);
   }
   if (!systems.length) warnings.push('未可靠识别体系，请按通知书勾选。不会按审核员资质推断体系。');
   applyStandardDefaults(project,systems);
@@ -108,7 +104,7 @@ function parseHaideNotice(rawText, fileName) {
   if (addressConflict) warnings.push('地址冲突：基本信息/变更事项与补充说明中另列地址，请核实最终注册地址及经营地址。');
   if (/■|☑/.test(between('多场所抽样', '审核时间'))) warnings.push('涉及多场所抽样，请在场所安排中补充实际场所和人员路线，正式输出前仍需核对。');
   const groupText = between(/(?:审核组长[、，,\s]*审核组成员|\d+[.、．]\s*审核组)[^\n]*/, /组内见证安排|\d+[.、．]\s*其他说明/);
-  const auditors = parseNoticeAuditors(groupText,warnings);
+  const auditors = parseNoticeAuditors(groupText,warnings,systems);
   if (!auditors.length) warnings.push('未可靠读取审核组表格，请补充人员；未沿用演示审核员。');
   project.travel_intervals = [];
   suggestNoticeTimes(project,auditors);
