@@ -70,6 +70,7 @@ function parseHaideNotice(rawText, fileName) {
   const types = labelled(project.audit_type_detail);
   const contracts = labelled(between('合同编号', '注册地址'));
   const systems = Object.keys(NOTICE_SYSTEMS).filter(s => criteria[s] || scopes[s] || types[s]);
+  Object.assign(criteria,splitStandardCriteria(criteriaBlock,systems));
   project.audit_systems = systems.join(',');
   for (const system of systems) {
     const suffix = NOTICE_SYSTEMS[system];
@@ -79,9 +80,7 @@ function parseHaideNotice(rawText, fileName) {
     project[`scope_${suffix}`] = (project.industry_code.match(/\b\d{2}(?:\.\d{2}){1,2}\b/g) || []).join(';');
   }
   if (!systems.length) warnings.push('未可靠识别体系，请按通知书勾选。不会按审核员资质推断体系。');
-  const ems = criteria.EMS || '';
-  project.ems_version = /2015|24001-2016/.test(ems) ? '2015' : /2026/.test(ems) ? '2026' : '';
-  if (systems.includes('EMS') && !project.ems_version) warnings.push('环境标准版本需确认。');
+  applyStandardDefaults(project,systems);
   const contact = (start, end, name, phone, email) => {
     const block = between(start, end);
     const parts = block.split(/电话\s*[:：]?/);

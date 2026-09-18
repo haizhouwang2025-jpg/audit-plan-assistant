@@ -1,6 +1,6 @@
 const AGENCY_PROFILES = {
   haide: {name:'北京海德国际认证有限公司',shortName:'海德',templateId:'OP-01-05-H/8',version:'haide-h8',systems:['QMS','EMS','OHSMS']},
-  nsi: {name:'中标联合（北京）认证有限公司',shortName:'中标联合',templateId:'NSI/CX-01-04',version:'nsi-01-04-v1',systems:['QMS']}
+  nsi: {name:'中标联合（北京）认证有限公司',shortName:'中标联合',templateId:'NSI/CX-01-04',version:'nsi-01-04-v2',systems:['QMS','EMS','OHSMS']}
 };
 
 function detectNoticeAgency(text) {

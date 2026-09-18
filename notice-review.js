@@ -77,6 +77,7 @@ function openNoticeReview(draft) {
   const p = noticeDraft.project;
   const nsi=p.agency_id==='nsi';
   const systems = normalizeSystemCodes(p.audit_systems).filter(s=>NOTICE_SYSTEMS[s]);
+  applyStandardDefaults(p,systems);
   const existingDepartments = draft.departmentSettings || draft.departments || [];
   const useDefaultDepartments = existingDepartments.length===0;
   const departments = useDefaultDepartments ? Object.entries(noticeDepartmentDefaults).map(([process,name])=>({process,name})) : existingDepartments;
@@ -119,6 +120,8 @@ function openNoticeReview(draft) {
     const selected = form.querySelector(`[name="review_system"][value="${section.dataset.reviewSystem}"]`).checked;
     section.hidden = !selected;
     section.querySelectorAll('input,textarea').forEach(el=>{el.disabled=!selected;});
+    const criteria=section.querySelector(`[name="criteria_${NOTICE_SYSTEMS[section.dataset.reviewSystem]}"]`);
+    if (selected && !criteria.value.trim()) criteria.value=STANDARD_DEFAULTS[section.dataset.reviewSystem];
   });
   form.querySelectorAll('[name="review_system"]').forEach(el=>el.addEventListener('change',toggleSystems));
   toggleSystems();
@@ -178,8 +181,8 @@ function confirmNoticeReview(event) {
     if(systems.some(s=>!agency.systems.includes(s))) throw new Error(`${agency.shortName}当前仅接入 ${agency.systems.join('/')} 模板，其他体系暂不能输出。`);
     project.template_version=agency.version;
     if (systems.includes('EMS')) {
-      if (!/14001\s*[:：-]?\s*(2015|2026)|24001-2016/.test(project.criteria_e)) throw new Error('请明确环境标准版本：ISO 14001:2015 或 ISO 14001:2026。');
-      project.ems_version = /14001\s*[:：-]?\s*2026/.test(project.criteria_e) ? '2026' : '2015';
+      project.ems_version=emsCriteriaVersion(project.criteria_e);
+      if (!project.ems_version) throw new Error('当前支持 ISO 14001:2015 或 ISO 14001:2026，请核对已填写的环境标准版本。');
     }
     const departmentSettings = [...form.querySelectorAll('[data-review-department]')].map(row=>({name:value(row,'dept_name'),process:value(row,'dept_process'),enabled:row.querySelector('[name="dept_enabled"]').checked}));
     const departments = departmentSettings.filter(dept=>dept.enabled).map((dept,i)=>({id:`notice_dept_${i+1}`,name:dept.name,process:dept.process,clauseIds:[],auditorIds:[]}));

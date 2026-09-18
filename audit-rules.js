@@ -92,7 +92,7 @@ const auditRules = {
   ]
 };
 
-function buildQesLibrary(qms, emsVersion = "2026") {
+function buildQesLibrary(qms, emsVersion = "2015") {
   const library = qms.map((clause) => ({ ...clause, number: clause.id, id: `QMS:${clause.id}`, system: "QMS" }));
   for (const system of ["EMS", "OHSMS"]) {
     let rows = [...auditRules.shared, ...auditRules[system]];

@@ -7,13 +7,16 @@ function buildNsiPlanModel() {
   const end=start ? addDays(start,scheduleWindow().days-1) : '';
   f.project_number=value('project_number');
   f.representative_email=value('representative_email');
-  f.audit_types=`质量管理体系：${type}`;
+  const systems=state.systems.filter(s=>STANDARD_SYSTEMS[s]);
+  const types=splitSystemValues(value('audit_type_detail'));
+  f.audit_types=systems.map(s=>`${STANDARD_SYSTEMS[s].name}：${state.activePhase==='stage1' ? type : types[s] || type}`).join('\n');
   f.special_types=value('special_types') || '□暂停恢复；□认证范围扩大；□转换机构；□转换标准';
-  f.scopes=value('scope_text_q');
+  f.scopes=systems.map(s=>`${systems.length>1 ? STANDARD_SYSTEMS[s].name+'：' : ''}${value('scope_text_'+STANDARD_SYSTEMS[s].suffix)}`).join('\n');
   f.coverage=`审核取证期限：自 ${value('coverage_start_date')} 至 ${value('coverage_end_date') || end} 止。需要时，可超期取证。`;
-  f.criteria=`1）${value('criteria_q')}\n2）受审核方管理体系文件\n3）适用的国家、行业及地方有关的法律法规及其他要求${value('criteria_extra')?'\n4）'+value('criteria_extra'):''}`;
+  f.criteria=`1）${systems.map(s=>`${systems.length>1 ? STANDARD_SYSTEMS[s].code+'：' : ''}${value('criteria_'+STANDARD_SYSTEMS[s].suffix)}`).join('；')}\n2）受审核方管理体系文件\n3）适用的国家、行业及地方有关的法律法规及其他要求${value('criteria_extra')?'\n4）'+value('criteria_extra'):''}`;
   f.total_person_days=value('total_person_days');
   f.onsite_person_days=value(state.activePhase==='stage1'?'stage1_person_days':'stage2_person_days');
+  if (value('person_days_detail')) f.schedule_notes += '\n分体系人日（来源原文）：'+value('person_days_detail');
   f.dates=`${start} ${document.getElementById('audit-start-time').value} 至 ${end} ${document.getElementById('audit-end-time').value}，共 ${scheduleWindow().days} 天`;
   f.method=value('audit_method')==='现场审核' ? '■现场  □远程' : value('audit_method')==='远程审核' ? '□现场  ■远程' : value('audit_method');
   const selected=/第一阶段/.test(type)?0:/第二阶段/.test(type)?1:/监督|监审/.test(type)?2:/再认证/.test(type)?3:/转换前/.test(type)?4:5;
@@ -25,7 +28,7 @@ function buildNsiPlanModel() {
   model.auditors=model.auditors.map((a,i)=>{
     const person=state.auditors[i];
     if(!person.registrationStatus) model.warnings.push(`${person.name} 注册状态/专家职称待补充。`);
-    return {...a,name:person.name+(person.fullTime?`\n(${person.fullTime==='是'?'专职':person.fullTime==='否'?'兼职':person.fullTime})`:''),role:noticeAuditorRoleLabel(person)+(person.additionalDuty || ''),registration_status:person.registrationStatus || '',registration:[a.registration,a.employer].filter(Boolean).join('\n'),professional_codes:person.professionalCodes?.QMS || ''};
+    return {...a,name:person.name+(person.fullTime?`\n(${person.fullTime==='是'?'专职':person.fullTime==='否'?'兼职':person.fullTime})`:''),role:noticeAuditorRoleLabel(person)+(person.additionalDuty || ''),registration_status:person.registrationStatus || '',registration:[a.registration,a.employer].filter(Boolean).join('\n'),professional_codes:systems.map(s=>person.professionalCodes?.[s] ? `${systems.length>1 ? STANDARD_SYSTEMS[s].code+'：' : ''}${person.professionalCodes[s]}` : '').filter(Boolean).join('\n')};
   });
   // Combine only adjacent final-day meetings; user-adjusted gaps remain explicit.
   const rows=[];

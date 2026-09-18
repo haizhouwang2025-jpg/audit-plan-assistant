@@ -149,7 +149,7 @@ const state = {
   importedPlan: null,
   rawImportedPlan: null,
   systems: ["QMS"],
-  emsVersion: "2026",
+  emsVersion: "2015",
   phaseDrafts: {},
   meetingOverrides: {},
   travelIntervals: [],
@@ -1687,10 +1687,10 @@ function prepareImportedPlan(plan) {
       throw new Error(`${prefix === "stage1" ? "一" : "二"}阶段审核起止日期无效`);
     }
   }
-  const emsSource = valueToString(plan.project.ems_version || plan.project.standard_e);
-  plan.emsVersion = /2015/.test(emsSource) ? "2015" : "2026";
+  applyStandardDefaults(plan.project,systems);
+  if (systems.includes('EMS') && !plan.project.ems_version) throw new Error('当前支持 ISO 14001:2015 或 ISO 14001:2026，请核对已填写的环境标准版本。');
+  plan.emsVersion = plan.project.ems_version || '2015';
   clauseLibrary = buildQesLibrary(qmsClauseLibrary, plan.emsVersion);
-  if (systems.includes("EMS") && !emsSource) plan.notes.push("环境体系按已约定的 ISO 14001:2026 编排；可在项目信息中切换版本。");
   const has29 = yesNoToBoolean(plan.project.has_29_scope) || /(^|\D)29(?:\.|\b)/.test(valueToString(plan.project.industry_code || plan.project.scope_q));
   const merged = new Map();
   const seenIds = new Set();
@@ -2035,6 +2035,7 @@ document.getElementById("ems-version").addEventListener("change", (event) => {
   if (state.rawImportedPlan) {
     const plan = structuredClone(state.rawImportedPlan);
     plan.project.ems_version = version;
+    plan.project.criteria_e = version==='2026' ? 'ISO 14001:2026' : STANDARD_DEFAULTS.EMS;
     applyImportedPlan(plan);
     state.importFindings = buildWorkbookFindings(state.importedPlan);
   } else {
