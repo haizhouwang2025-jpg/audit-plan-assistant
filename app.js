@@ -541,9 +541,9 @@ function updateNoticeSummary() {
   const company = document.getElementById("company").value.trim() || "未填写企业";
   const auditType = document.getElementById("audit-type").value;
   const days = document.getElementById("audit-days").value || "0";
-  const personDays = document.getElementById("person-days").value || "0";
+  const personDays = document.getElementById("person-days").value;
   const importSuffix = state.importedFileName ? ` / 已导入：${state.importedFileName}` : "";
-  document.getElementById("notice-summary").textContent = `${company} / ${auditType} / ${days} 天 / ${personDays} 人日${importSuffix}`;
+  document.getElementById("notice-summary").textContent = `${company} / ${auditType} / ${days} 天 / ${personDays ? `${personDays} 人日` : '批准人日待确认'}${importSuffix}`;
 }
 
 function makeDropArea(area) {
@@ -581,8 +581,8 @@ function renderPhaseSelector() {
     const draft = state.phaseDrafts[card.dataset.phaseId]?.fields;
     const active = card.dataset.phaseId === state.activePhase;
     const days = active ? document.getElementById("audit-days").value : draft?.["audit-days"] || phase.auditDays;
-    const personDays = active ? document.getElementById("person-days").value : draft?.["person-days"] || phase.personDays;
-    card.querySelector(".phase-card-foot").textContent = state.importedPlan && card.dataset.phaseId === "stage1" && !state.importedPlan.project.stage1_start_date && !draft ? "日期及人日待确认" : `${days} 天 / ${personDays} 人日`;
+    const personDays = active ? document.getElementById("person-days").value : draft?.["person-days"] ?? (state.importedPlan ? state.importedPlan.project[`${card.dataset.phaseId}_person_days`] : phase.personDays);
+    card.querySelector(".phase-card-foot").textContent = state.importedPlan && card.dataset.phaseId === "stage1" && !state.importedPlan.project.stage1_start_date && !draft ? "日期及人日待确认" : `${days} 天 / ${personDays ? `${personDays} 人日` : '批准人日待确认'}`;
   });
   document.getElementById("phase-summary").textContent = preset.shortLabel;
   document.getElementById("active-phase-label").textContent = preset.label;
@@ -1052,15 +1052,17 @@ function renderSchedule(warnings = []) {
 
   lucide.createIcons();
   const personHours = countedPersonHours(state.scheduleRows);
-  const targetHours = Math.max(0.5, Number(document.getElementById("person-days").value || 1)) * 8;
+  const approved = Number(document.getElementById("person-days").value);
+  const targetHours = Number.isFinite(approved) && approved>0 ? approved*8 : null;
   const summary = document.getElementById("hours-summary");
-  if (personHours < targetHours-0.25) warnings.push(`已排 ${(personHours / 8).toFixed(2)} 人日，低于批准 ${(targetHours / 8).toFixed(2)} 人日，请确认人员及工作时段。`);
-  if (personHours > targetHours+0.25) {
+  if (targetHours===null) warnings.push('批准审核人日待确认，当前为预排结果。');
+  if (targetHours!==null && personHours < targetHours-0.25) warnings.push(`已排 ${(personHours / 8).toFixed(2)} 人日，低于批准 ${(targetHours / 8).toFixed(2)} 人日，请确认人员及工作时段。`);
+  if (targetHours!==null && personHours > targetHours+0.25) {
     const note=document.createElement('li');note.className='note schedule-warning';
     note.textContent=`已按工作时段排满 ${(personHours / 8).toFixed(2)} 人日；批准 ${(targetHours / 8).toFixed(2)} 人日仅作对照，请组长核对。`;
     document.getElementById('issues-list').appendChild(note);
   }
-  summary.textContent = `已排 ${(personHours / 8).toFixed(2)} / 批准 ${(targetHours / 8).toFixed(2)} 人日`;
+  summary.textContent = targetHours===null ? `已排 ${(personHours / 8).toFixed(2)} 人日 / 批准待确认` : `已排 ${(personHours / 8).toFixed(2)} / 批准 ${(targetHours / 8).toFixed(2)} 人日`;
   summary.className = `tag ${warnings.length ? "warn" : "good"}`;
 
   if (warnings.length) {
@@ -1816,10 +1818,7 @@ function setStageFieldsFromImportedPlan(plan, phaseId) {
   if (project[`${prefix}_person_days`]) {
     document.getElementById("person-days").value = String(Number(project[`${prefix}_person_days`]));
   } else {
-    const meetings = buildMeetingPlan().meetings;
-    const minutes = buildSegments(meetings).reduce((sum, segment) => sum + segment.absEnd - segment.absStart, 0);
-    const auditorCount = state.auditors.filter(isIndependentAuditor).length;
-    document.getElementById("person-days").value = ((minutes / 60 * auditorCount + countedPersonHours(meetings)) / 8).toFixed(2);
+    document.getElementById("person-days").value = '';
   }
   if (project[`${prefix}_audit_type`]) document.getElementById("audit-type").value = valueToString(project[`${prefix}_audit_type`]);
 }
@@ -1874,7 +1873,7 @@ function buildWorkbookFindings(plan) {
   if (!professionalCount) {
     findings.push("导入表未确认专业审核员，核心专业条款会出现风险提示。");
   }
-  if (!plan.project.stage2_person_days) findings.push("表内未提供批准的审核人日，当前按时段和可独立主审人数暂估，请在项目信息中确认。");
+  if (!plan.project.stage2_person_days) findings.push("表内未提供批准的审核人日，可先预排，正式输出前需确认批准值。");
   if (!plan.project.stage1_start_date) findings.push("表内未提供一阶段日期，一阶段为待确认草案。");
   if (plan.auditors.some((auditor) => ["技术专家", "实习"].includes(auditor.role))) findings.push("技术专家安排共同审核；实习人员不独立主审，两者均不计入审核人日。");
   return findings;
@@ -2016,7 +2015,14 @@ document.getElementById("new-dept-name").addEventListener("keydown", (event) => 
   if (event.key === "Enter") addDepartment();
 });
 ["company", "scope", ...phaseFieldIds].forEach((id) => {
-  document.getElementById(id).addEventListener("change", generateSchedule);
+  document.getElementById(id).addEventListener("change", (event) => {
+    if (id === 'person-days' && state.importedPlan) {
+      const key = `${state.activePhase}_person_days`;
+      state.importedPlan.project[key] = event.target.value;
+      if (state.rawImportedPlan) state.rawImportedPlan.project[key] = event.target.value;
+    }
+    generateSchedule();
+  });
 });
 
 document.getElementById("ems-version").addEventListener("change", (event) => {

@@ -8,6 +8,7 @@ function setupNoticeAgency(form) {
     if(!window.confirm('切换机构将按对应规则重新读取通知书，尚未确认的修改不会保留。继续吗？')) {event.target.value=previous;return;}
     try {
       const draft=noticeDraft.rawText ? parseTaskNotice(noticeDraft.rawText,noticeDraft.fileName,id) : structuredClone(noticeDraft);
+      delete draft.preserveAssignments;
       draft.project.agency_id=id;draft.project.template_version=AGENCY_PROFILES[id].version;
       draft.project.agency_detection='人工选择';
       openNoticeReview(draft);

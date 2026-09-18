@@ -45,7 +45,7 @@ function buildHaidePlanModel(options = {}) {
   };
   const actualPersonDays=countedPersonHours(state.scheduleRows)/8;
   const approvedPersonDays=Number(project[state.activePhase==='stage1' ? 'stage1_person_days' : 'stage2_person_days']);
-  if (Math.abs(actualPersonDays-approvedPersonDays)>0.25/8) fields.schedule_notes += `\n批准审核人日：${approvedPersonDays}；按当前日程安排：${actualPersonDays.toFixed(2)} 人日。`;
+  if (Number.isFinite(approvedPersonDays) && approvedPersonDays>0 && Math.abs(actualPersonDays-approvedPersonDays)>0.25/8) fields.schedule_notes += `\n批准审核人日：${approvedPersonDays}；按当前日程安排：${actualPersonDays.toFixed(2)} 人日。`;
   HAIDE_TEMPLATE.purposes.forEach((_,index) => { fields[`purpose_${index}`]=index===selected?"☑":"□"; });
   const auditors=state.auditors.map((a) => {
     if (!a.registration && !["技术专家","实习"].includes(a.role)) missing.push(`${a.name} 注册证书号`);
