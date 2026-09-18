@@ -166,14 +166,20 @@ function updateWordDownloadState(model = buildAgencyPlanModel()) {
   const agency=AGENCY_PROFILES[currentAgencyId()];
   const readyTitle=`下载${agency?.shortName || ''}标准格式 Word 审核计划`;
   const pending = model.warnings.length > 0;
+  const reason = pending ? `暂不能导出 Word：${model.warnings[0]}${model.warnings.length>1 ? `（另有 ${model.warnings.length-1} 项，详见预览中的待确认事项。）` : ''}` : '';
+  for (const id of ['word-download-reason','preview-word-reason']) {
+    const message = document.getElementById(id);
+    message.textContent = reason;
+    message.hidden = !pending;
+  }
   const preview = document.getElementById("btn-preview-word");
   const card = document.getElementById("btn-download-word");
   preview.disabled = pending || haideWordDownloading;
-  preview.title = pending ? "请先补齐预览中的待确认事项" : readyTitle;
+  preview.title = pending ? reason : readyTitle;
   card.disabled = haideWordDownloading;
   card.dataset.ready = String(!pending);
   card.setAttribute("aria-busy", String(haideWordDownloading));
-  card.title = pending ? "信息待确认，点击查看待确认事项" : readyTitle;
+  card.title = pending ? reason : readyTitle;
   document.getElementById("word-download-status").textContent = haideWordDownloading ? "正在生成…" : pending ? "待确认" : "可下载";
 }
 

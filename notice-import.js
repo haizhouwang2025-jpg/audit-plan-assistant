@@ -88,12 +88,9 @@ function parseHaideNotice(rawText, fileName) {
   contact('联系人(?:[/／]职务)?', '认证领域|审核类型|认证标准', 'contact_name', 'contact_phone', 'contact_email');
   project.stage2_audit_type = /监审|监督/.test(project.audit_type_detail) ? '监督审核' : /再认证/.test(project.audit_type_detail) ? '再认证审核' : /第一阶段|一阶段/.test(project.audit_type_detail) ? '初次认证第一阶段' : /第二阶段|二阶段/.test(project.audit_type_detail) ? '初次认证第二阶段' : '';
   const datesText = between(/审核日期\s*[:：]/, '申请评审补充说明|审核策划补充说明|2[.、．]审核组');
-  const iso = m => `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
   readNoticeTimeRange(project,datesText,text);
   project.stage2_person_days = text.match(/总现场审核(?:时间|人日)\s*[:：]\s*([\d.]+)\s*人日/)?.[1] || '';
-  const previous = text.match(/上一次审核结束日期\s*[:：]\s*(20\d{2})[年/.-](\d{1,2})[月/.-](\d{1,2})/);
-  project.coverage_start_date = previous ? iso(previous) : '';
-  if (previous) warnings.push('审核覆盖起点暂带入上次审核结束日，请按本项目要求复核。');
+  readNoticeCoverageStart(project,text,warnings);
   project.audit_method = /审核方式\s*[:：]\s*[■☑✓√]\s*现场审核/.test(text) ? '现场审核' : '';
   project.shift_required = /[■☑✓√]\s*针对倒班/.test(text);
   project.outsource_visit = /[■☑✓√]\s*针对外包/.test(text) ? '是' : '否';

@@ -521,6 +521,9 @@ h2 {
 .word-download-copy > span { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
 .word-download-status { max-width: 4em; flex-shrink: 0; color: var(--muted); font-size: 12px; }
 .word-download-card[data-ready="true"] .word-download-status { color: var(--green); }
+.word-export-reason { margin: 0; color: #8a4116; background: #fff7ed; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; padding: 10px 14px; }
+.plan-output > .word-export-reason { flex-basis: 100%; border-left: 3px solid #a15a20; }
+.preview-word-reason { flex-shrink: 0; max-height: 25vh; overflow: auto; border-bottom: 1px solid #ead6c4; }
 
 .section-heading {
   justify-content: space-between;

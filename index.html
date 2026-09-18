@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#b21e35">
   <title>认证审核计划辅助系统</title>
-  <link rel="stylesheet" href="styles.css?v=20260918-apex">
+  <link rel="stylesheet" href="styles.css?v=20260918-word-export">
   <link rel="icon" href="assets/apex-nexus-logo.png" type="image/png">
 </head>
 <body>
@@ -209,12 +209,13 @@
 
       <section class="plan-output" aria-labelledby="output-title">
         <h2 id="output-title">审核计划输出</h2>
-        <button id="btn-download-word" class="word-download-card" type="button" aria-describedby="word-download-status">
+        <button id="btn-download-word" class="word-download-card" type="button" aria-describedby="word-download-status word-download-reason">
           <span class="word-file-icon"><i data-lucide="file-text" aria-hidden="true"></i></span>
           <span class="word-download-copy"><strong>下载 Word</strong><span id="word-template-label">海德 · OP-01-05-H/8</span></span>
           <span id="word-download-status" class="word-download-status" role="status">待确认</span>
           <i data-lucide="download" aria-hidden="true"></i>
         </button>
+        <p id="word-download-reason" class="word-export-reason" role="status" hidden></p>
       </section>
 
       <section class="schedule-panel" aria-labelledby="schedule-title">
@@ -249,10 +250,11 @@
       </div>
       <div class="preview-actions">
         <button id="btn-preview-close" class="btn" type="button" autofocus><i data-lucide="arrow-left" aria-hidden="true"></i>返回编辑</button>
-        <button id="btn-preview-word" class="btn" type="button"><i data-lucide="download" aria-hidden="true"></i>导出 Word</button>
+        <button id="btn-preview-word" class="btn" type="button" aria-describedby="preview-word-reason"><i data-lucide="download" aria-hidden="true"></i>导出 Word</button>
         <button id="btn-preview-print" class="btn btn-primary" type="button"><i data-lucide="printer" aria-hidden="true"></i>打印</button>
       </div>
     </header>
+    <p id="preview-word-reason" class="word-export-reason preview-word-reason" role="status" hidden></p>
     <div id="preview-scroll" class="preview-scroll" tabindex="0" aria-label="审核计划正文">
       <div id="preview-content"></div>
     </div>
@@ -269,19 +271,19 @@
   <script src="haide-template.js"></script>
   <script src="nsi-template.js?v=20260918-nsi-qes"></script>
   <script src="agency-profiles.js?v=20260918-nsi-qes"></script>
-  <script src="nsi-notice.js?v=20260918-nsi-qes"></script>
+  <script src="nsi-notice.js?v=20260918-word-export"></script>
   <script src="nsi-plan.js?v=20260918-nsi-qes"></script>
   <script src="agency-review.js?v=20260918-deferred-fields"></script>
-  <script src="haide-plan.js?v=20260918-haide-qes"></script>
+  <script src="haide-plan.js?v=20260918-word-export"></script>
   <script src="audit-rules.js?v=20260918-nsi-qes"></script>
   <script src="plan-content.js?v=20260917-daily-communication"></script>
   <script src="plan-meetings.js?v=20260917-personnel-rows"></script>
   <script src="plan-travel.js?v=20260918-optimization3"></script>
-  <script src="notice-time.js?v=20260918-optimization3"></script>
+  <script src="notice-time.js?v=20260918-word-export"></script>
   <script src="notice-auditors.js?v=20260918-haide-qes"></script>
   <script src="clause-picker.js?v=20260917-optimization2"></script>
   <script src="plan-scheduler.js?v=20260918-optimization3"></script>
-  <script src="notice-import.js?v=20260918-haide-qes"></script>
+  <script src="notice-import.js?v=20260918-word-export"></script>
   <script src="notice-travel-review.js?v=20260918-optimization3"></script>
   <script src="notice-review.js?v=20260918-haide-qes"></script>
   <script src="app.js?v=20260918-nsi-qes"></script>

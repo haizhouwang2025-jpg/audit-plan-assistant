@@ -66,9 +66,7 @@ function parseNsiNotice(rawText,fileName) {
   }
   readNoticeTimeRange(project,field('审核时间安排','2\\.8|审核组成员'),flat);
   project.shift_required=Boolean(project.shift_details && !/^(无|不适用|[-/])$/.test(project.shift_details));
-  const previous=flat.match(/上一次审核时间\s*[:：]\s*(20\d{2})\s*[年/.\-]\s*(\d{1,2})\s*[月/.\-]\s*(\d{1,2})/);
-  project.coverage_start_date=previous ? `${previous[1]}-${previous[2].padStart(2,'0')}-${previous[3].padStart(2,'0')}` : '';
-  if(previous) warnings.push('审核取证起点暂带入上次审核日期，请按项目要求复核。');
+  readNoticeCoverageStart(project,flat,warnings);
   project.planning_notes=field('审核提示','上一次审核时间|3\\.认证公正性');
   const groupMatch=/审核\s*组\s*成\s*员\s*[:：]?/.exec(text);
   const rawGroup=groupMatch ? text.slice(groupMatch.index+groupMatch[0].length).split(/2\s*\.\s*9|审核\s*提\s*示/)[0] : '';

@@ -1,3 +1,19 @@
+function readNoticeCoverageStart(project, text, warnings) {
+  const label = '上\\s*(?:一\\s*)?次\\s*审\\s*核\\s*(?:结\\s*束\\s*)?(?:日\\s*期|时\\s*间)';
+  const date = '(20\\d{2})\\s*[年/.\\-]\\s*(\\d{1,2})\\s*[月/.\\-]\\s*(\\d{1,2})(?!\\d)\\s*日?';
+  const matches = [...text.matchAll(new RegExp(label+'\\s*[:：]?\\s*'+date,'g'))];
+  const dates = matches.map(m => `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`);
+  const invalid = dates.some(value => {
+    const parsed = new Date(value+'T00:00:00Z');
+    return !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10)!==value;
+  });
+  // A prior-audit range or conflicting dates needs review, not an inferred start.
+  const range = matches.some(m => /^\s*(?:至|到|[-~～—–])\s*\d/.test(text.slice(m.index+m[0].length)));
+  project.coverage_start_date = !invalid && !range && new Set(dates).size===1 ? dates[0] : '';
+  if (project.coverage_start_date) warnings.push('本次审核追溯起始日期暂带入通知书中的上次审核日期，请按项目要求复核。');
+  else if (matches.length) warnings.push('上次审核日期存在无效日期、多个不同日期或日期区间，请确认本次审核追溯起始日期。');
+}
+
 function readNoticeTimeRange(project, rangeText, fullText) {
   const text = rangeText.split(/午休|倒班/)[0].replace(/：/g, ':');
   const dates = [...text.matchAll(/(20\d{2})\s*[年/.-]\s*(\d{1,2})\s*[月/.-]\s*(\d{1,2})\s*日?/g)];
