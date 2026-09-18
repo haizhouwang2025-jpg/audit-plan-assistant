@@ -1080,9 +1080,9 @@ function renderSchedule(warnings = []) {
 function preparePlanPreview() {
   renderDiagnostics();
   generateSchedule();
-  const model = buildHaidePlanModel();
+  const model = buildAgencyPlanModel();
   window.currentHaidePlan = model;
-  document.getElementById("preview-content").innerHTML = renderHaidePlan(model);
+  document.getElementById("preview-content").innerHTML = renderAgencyPlan(model);
   updateWordDownloadState(model);
   syncPrintContent();
 }

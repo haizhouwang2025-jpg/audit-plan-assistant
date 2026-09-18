@@ -29,7 +29,7 @@ async function readTaskNotice(file) {
   return parseTaskNotice(text, file.name);
 }
 
-function parseTaskNotice(rawText, fileName) {
+function parseHaideNotice(rawText, fileName) {
   let text = rawText.replace(/\r\n?/g, '\n').replace(/\u0007/g, '\t').replace(/\u00a0/g, ' ').replace(/«[^»]*»/g, '').trim();
   for (const label of ['受审核方名称','注册地址','经营地址','管理者代表','联系人','认证领域和审核类型','认证标准','变更事项','审核范围','专业代码','申请评审补充说明','审核策划补充说明','多场所抽样','审核时间']) {
     text = text.replace(new RegExp([...label].join('\\s*'),'g'),label);

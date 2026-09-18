@@ -1,4 +1,4 @@
-function buildHaidePlanModel() {
+function buildHaidePlanModel(options = {}) {
   const project = state.importedPlan?.project || {};
   const text = (key, fallback = "") => valueToString(project[key]) || fallback;
   const pending = (key, label) => text(key, `【待补充：${label}】`);
@@ -9,10 +9,10 @@ function buildHaidePlanModel() {
   const end = date ? addDays(date, scheduleWindow().days - 1) : "";
   const missing = [];
   for (const field of HAIDE_FIELDS.filter((f) => f.required && !["audit_systems", "stage2_audit_type", "stage2_person_days"].includes(f.key))) {
-    if (!text(field.key)) missing.push(field.label);
+    if (!text(field.key) && !(options.agency==='nsi' && field.key==='changes')) missing.push(field.label);
   }
   for (const {code,suffix} of systems) {
-    for (const [key,label] of [[`contract_${suffix}`,"合同编号"],[`criteria_${suffix}`,"审核准则"],[`scope_text_${suffix}`,"正式认证范围"]]) if (!text(key)) missing.push(`${code} ${label}`);
+    for (const [key,label] of [[`contract_${suffix}`,"合同编号"],[`criteria_${suffix}`,"审核准则"],[`scope_text_${suffix}`,"正式认证范围"]]) if (!text(key) && !(options.agency==='nsi' && key.startsWith('contract_'))) missing.push(`${code} ${label}`);
   }
   if (!text("address")) missing.push("经营地址");
   if (state.activePhase === "stage2" && !text("stage2_audit_type")) missing.push("本次审核类型");
@@ -107,7 +107,11 @@ function renderHaidePlan(model) {
 }
 
 async function createHaideWord(model) {
-  const zip=await JSZip.loadAsync(HAIDE_TEMPLATE.base64,{base64:true});
+  return createPlanTemplateWord(model,HAIDE_TEMPLATE);
+}
+
+async function createPlanTemplateWord(model,templateData,options = {}) {
+  const zip=await JSZip.loadAsync(templateData.base64,{base64:true});
   const xml=parseXml(await zip.file("word/document.xml").async("string"));
   const w="http://schemas.openxmlformats.org/wordprocessingml/2006/main";
   function fill(root,values){
@@ -127,7 +131,23 @@ async function createHaideWord(model) {
   for(const [prefix,records] of [["auditor",model.auditors],["schedule",model.rows]]) {
     const template=[...xml.getElementsByTagNameNS(w,"tr")].find(tr=>tr.textContent.includes(`{{${prefix}.`));
     if(!template) throw new Error("标准模板缺少重复行");
-    for(const record of records){ const row=template.cloneNode(true); fill(row,Object.fromEntries(Object.entries(record).map(([key,value])=>[`${prefix}.${key}`,value]))); template.before(row); }
+    for(const [index,record] of records.entries()){
+      const row=template.cloneNode(true);
+      fill(row,Object.fromEntries(Object.entries(record).map(([key,value])=>[`${prefix}.${key}`,value])));
+      if(options.mergeSchedule && prefix==='schedule') {
+        const cells=[...row.children].filter(node=>node.localName==='tc');
+        for(const [column,key] of [[0,'date'],[1,'time']]) {
+          const same=other=>other && other.date===record.date && other.time===record.time;
+          const continued=same(records[index-1]), starts=same(records[index+1]);
+          if(!continued && !starts) continue;
+          const cell=cells[column],pr=cell.getElementsByTagNameNS(w,'tcPr')[0];
+          const merge=xml.createElementNS(w,'w:vMerge');
+          merge.setAttributeNS(w,'w:val',continued?'continue':'restart');pr.append(merge);
+          if(continued) for(const t of cell.getElementsByTagNameNS(w,'t')) t.textContent='';
+        }
+      }
+      template.before(row);
+    }
     template.remove();
   }
   fill(xml,model.fields);
@@ -139,16 +159,19 @@ async function createHaideWord(model) {
 
 let haideWordDownloading = false;
 
-function updateWordDownloadState(model = buildHaidePlanModel()) {
+function updateWordDownloadState(model = buildAgencyPlanModel()) {
+  updateAgencyOutputLabel();
+  const agency=AGENCY_PROFILES[currentAgencyId()];
+  const readyTitle=`下载${agency?.shortName || ''}标准格式 Word 审核计划`;
   const pending = model.warnings.length > 0;
   const preview = document.getElementById("btn-preview-word");
   const card = document.getElementById("btn-download-word");
   preview.disabled = pending || haideWordDownloading;
-  preview.title = pending ? "请先补齐预览中的待确认事项" : "下载海德标准格式 Word 审核计划";
+  preview.title = pending ? "请先补齐预览中的待确认事项" : readyTitle;
   card.disabled = haideWordDownloading;
   card.dataset.ready = String(!pending);
   card.setAttribute("aria-busy", String(haideWordDownloading));
-  card.title = pending ? "信息待确认，点击查看待确认事项" : "下载海德标准格式 Word 审核计划";
+  card.title = pending ? "信息待确认，点击查看待确认事项" : readyTitle;
   document.getElementById("word-download-status").textContent = haideWordDownloading ? "正在生成…" : pending ? "待确认" : "可下载";
 }
 
@@ -160,7 +183,7 @@ async function downloadHaideWord() {
   haideWordDownloading=true;
   updateWordDownloadState(model);
   try {
-    const blob=await createHaideWord(model), url=URL.createObjectURL(blob), a=document.createElement("a");
+    const blob=await createAgencyWord(model), url=URL.createObjectURL(blob), a=document.createElement("a");
     a.href=url; a.download=`${model.fields.company.replace(/[<>:"/\\|?*]/g,"_")}_审核实施计划.docx`; a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
   } catch(error) { window.alert(`导出失败：${error.message}`); }

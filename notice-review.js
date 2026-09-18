@@ -62,7 +62,7 @@ function noticeAuditorRow(a = {}) {
   if (a.systemRoles) roles.unshift(['system_roles',noticeAuditorRoleLabel(a)]);
   return `<div class="review-auditor" data-review-auditor data-system-roles="${escapeHtml(JSON.stringify(a.systemRoles || {}))}">
     <div class="review-grid auditor-basic">${reviewInput('auditor_code','人员代码',a.code,'text',true)}${reviewInput('auditor_name','姓名',a.name,'text',true)}${reviewSelect('auditor_role','组内身份',roles,a.systemRoles ? 'system_roles' : a.role || '组员')}<button type="button" class="icon-button" data-remove-review-row title="移除人员" aria-label="移除人员"><i data-lucide="trash-2"></i></button></div>
-    <div class="review-grid">${reviewInput('auditor_registration','注册证书号',a.registration)}${reviewInput('auditor_phone','联系电话',a.phone,'text',true)}${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>reviewInput(`auditor_${k}`,`${k.toUpperCase()} 专业代码（无则留空）`,codes[s])).join('')}${reviewInput('auditor_employer','工作单位',a.employer)}${reviewInput('auditor_fullTime','是否专职',a.fullTime)}</div>
+    <div class="review-grid">${reviewInput('auditor_registration','注册证书号',a.registration)}${reviewInput('auditor_phone','联系电话',a.phone,'text',true)}${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>reviewInput(`auditor_${k}`,`${k.toUpperCase()} 专业代码（无则留空）`,codes[s])).join('')}${reviewInput('auditor_employer','工作单位',a.employer)}${reviewInput('auditor_fullTime','是否专职',a.fullTime)}${noticeDraft?.project.agency_id==='nsi' ? reviewInput('auditor_registrationStatus','注册状态/专家职称',a.registrationStatus,'text',true)+reviewInput('auditor_additionalDuty','附加职责',a.additionalDuty) : ''}</div>
   </div>`;
 }
 
@@ -70,6 +70,7 @@ function openNoticeReview(draft) {
   document.getElementById('notice-review').dataset.applied='false';
   noticeDraft = structuredClone(draft);
   const p = noticeDraft.project;
+  const nsi=p.agency_id==='nsi';
   const systems = normalizeSystemCodes(p.audit_systems).filter(s=>NOTICE_SYSTEMS[s]);
   const existingDepartments = draft.departmentSettings || draft.departments || [];
   const useDefaultDepartments = existingDepartments.length===0;
@@ -77,27 +78,30 @@ function openNoticeReview(draft) {
   const form = document.getElementById('notice-review-form');
   form.innerHTML = `<header class="notice-review-header"><div><h2 id="notice-review-title">通知书复核</h2><p>${escapeHtml(draft.fileName || '项目资料')}</p></div><button type="button" class="icon-button" id="notice-review-close" aria-label="关闭复核" title="关闭复核"><i data-lucide="x"></i></button></header>
     <div class="notice-review-body">
+      ${noticeAgencySection(p)}
       ${draft.warnings?.length?`<aside class="notice-review-warnings"><h3>待确认事项</h3><ul>${draft.warnings.map(w=>`<li>${escapeHtml(w)}</li>`).join('')}</ul></aside>`:''}
       <section class="notice-review-section"><h3>项目资料</h3>
         <div class="review-system-options">${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>`<label><input type="checkbox" name="review_system" value="${s}" ${systems.includes(s)?'checked':''}>${k.toUpperCase()} ${systemCatalog[s].name}</label>`).join('')}</div>
         <div class="review-grid">
           ${reviewInput('company_name','受审核方',p.company_name,'text',true)}
+          ${nsi ? reviewInput('project_number','项目编号',p.project_number,'text',true) : ''}
           ${reviewSelect('stage2_audit_type','审核类型',['监督审核','再认证审核','初次认证第一阶段','初次认证第二阶段','专项审核','短通审核','补充审核','转换前现场访问'].map(v=>[v,v]),p.stage2_audit_type)}
           ${reviewText('registered_address','注册地址',p.registered_address,true)}${reviewText('address','经营地址',p.address,true)}
           ${reviewInput('contact_name','联系人及职务',p.contact_name,'text',true)}${reviewInput('contact_phone','联系电话',p.contact_phone,'text',true)}
           ${reviewInput('coverage_start_date','审核覆盖起点',p.coverage_start_date,'date',true)}${reviewInput('coverage_end_date','审核覆盖截止日（空白为末日）',p.coverage_end_date,'date')}
           ${reviewInput('audit_method','审核方式',p.audit_method,'text',true)}${reviewInput('industry_code','项目专业代码',p.industry_code,'text',true)}
-          ${reviewText('changes','变更事项',p.changes,true)}
+          ${reviewText('changes','变更事项',p.changes,!nsi)}
+          ${nsi ? reviewInput('representative_email','客户代表邮箱',p.representative_email)+reviewText('special_types','特殊审核类型',p.special_types || '□暂停恢复；□认证范围扩大；□转换机构；□转换标准')+reviewText('other_purpose','其他审核目的（适用时）',p.other_purpose)+reviewText('planning_notes','通知书项目提示',p.planning_notes) : ''}
         </div>
         <details class="review-details"><summary>其他项目资料</summary><div class="review-grid">${reviewInput('management_representative','管理者代表',p.management_representative)}${reviewInput('representative_phone','管理者代表电话',p.representative_phone)}${reviewInput('contact_email','联系人邮箱',p.contact_email)}${reviewInput('audit_type_detail','各体系审核类型',p.audit_type_detail)}${reviewText('site_arrangements','多场所安排',p.site_arrangements)}${reviewText('outsource_details','外包现场安排',p.outsource_details)}${reviewSelect('outsource_visit','赴外包方现场',[['否','否'],['是','是']],p.outsource_visit || '否')}${reviewText('schedule_notes','日程补充说明',p.schedule_notes)}</div></details>
-        ${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>`<div class="review-system-fields" data-review-system="${s}" ${systems.includes(s)?'':'hidden'}><h4>${k.toUpperCase()} 体系</h4><div class="review-grid">${reviewInput(`contract_${k}`,'合同编号',p[`contract_${k}`],'text',true)}${reviewInput(`criteria_${k}`,'标准及版本',p[`criteria_${k}`],'text',true)}${reviewInput(`scope_${k}`,'本体系专业代码',p[`scope_${k}`] || p.industry_code,'text',true)}${reviewText(`scope_text_${k}`,'正式认证范围',p[`scope_text_${k}`],true)}</div></div>`).join('')}
+        ${Object.entries(NOTICE_SYSTEMS).map(([s,k])=>`<div class="review-system-fields" data-review-system="${s}" ${systems.includes(s)?'':'hidden'}><h4>${k.toUpperCase()} 体系</h4><div class="review-grid">${nsi ? '' : reviewInput(`contract_${k}`,'合同编号',p[`contract_${k}`],'text',true)}${reviewInput(`criteria_${k}`,'标准及版本',p[`criteria_${k}`],'text',true)}${reviewInput(`scope_${k}`,'本体系专业代码',p[`scope_${k}`] || p.industry_code,'text',true)}${reviewText(`scope_text_${k}`,'正式认证范围',p[`scope_text_${k}`],true)}</div></div>`).join('')}
       </section>
       <section class="notice-review-section"><div class="review-section-heading"><h3>审核组</h3><button type="button" class="btn" id="review-add-auditor"><i data-lucide="user-plus"></i>添加人员</button></div><div id="review-auditors">${draft.auditors.map(noticeAuditorRow).join('')}</div></section>
       <section class="notice-review-section" id="notice-department-settings"><div class="review-section-heading"><h3>部门名称${useDefaultDepartments?'<span class="department-default-status">默认建议 · 待确认</span>':''}</h3><button type="button" class="btn" id="review-add-department"><i data-lucide="plus"></i>添加部门过程</button></div><div id="review-departments">${departments.map(noticeDepartmentRow).join('')}</div></section>
       <section class="notice-review-section" id="notice-time-settings"><h3>时间安排</h3><div class="review-grid">
         ${reviewTimeInput('stage2_start_date','开始日期',p.stage2_start_date,'date',true)}${reviewTimeInput('stage2_start_time','首日开始',p.stage2_start_time,'time',true)}
         ${reviewTimeInput('stage2_end_date','结束日期',p.stage2_end_date,'date',true)}${reviewTimeInput('stage2_end_time','末日结束',p.stage2_end_time,'time',true)}
-        ${reviewTimeInput('stage2_person_days','批准总审核人日',p.stage2_person_days,'number',true)}${reviewTimeInput('lunch_start','午休开始',p.lunch_start || '12:00','time',true)}${reviewTimeInput('lunch_hours','午休时长（小时）',p.lunch_hours ?? 1,'number',true)}
+        ${nsi ? reviewInput('total_person_days','批准审核总人日',p.total_person_days,'number',true) : ''}${reviewTimeInput('stage2_person_days',nsi?'批准现场审核人日':'批准总审核人日',p.stage2_person_days,'number',true)}${reviewTimeInput('lunch_start','午休开始',p.lunch_start || '12:00','time',true)}${reviewTimeInput('lunch_hours','午休时长（小时）',p.lunch_hours ?? 1,'number',true)}
       </div>${p.notice_time?.notes?.length && !p.notice_time.confirmed ? `<ul class="review-time-notes">${p.notice_time.notes.map(note=>`<li>${escapeHtml(note)}</li>`).join('')}</ul>` : ''}
       <div class="review-shift-heading"><label><input type="checkbox" name="review_shift_enabled" ${p.shift_required || Number(p.shift_audit_hours)>0 ? 'checked' : ''} ${p.shift_required ? 'disabled' : ''}>倒班审核${p.shift_required ? '（通知书要求）' : ''}</label><span id="review-shift-status"></span></div>
       <div class="review-grid" id="review-shift-fields">${reviewTimeInput('shift_audit_hours','倒班时长（小时）',p.shift_audit_hours || 1,'number',true)}${reviewTimeInput('shift_date','倒班日期',p.shift_date,'date',true)}${reviewTimeInput('shift_start','倒班开始',p.shift_start,'time',true)}</div>
@@ -147,6 +151,7 @@ function openNoticeReview(draft) {
     }
   };
   form.onsubmit = confirmNoticeReview;
+  setupNoticeAgency(form);
   lucide.createIcons();
   document.getElementById('notice-review').showModal();
 }
@@ -162,6 +167,10 @@ function confirmNoticeReview(event) {
     const data = new FormData(form);
     for (const [key,v] of data) if (!/^(auditor_|dept_|travel_|review_)/.test(key)) project[key]=String(v).trim();
     project.audit_systems = systems.join(',');
+    const agency=AGENCY_PROFILES[project.agency_id];
+    if(!agency) throw new Error('请选择已配置的认证机构。');
+    if(systems.some(s=>!agency.systems.includes(s))) throw new Error(`${agency.shortName}当前仅接入 ${agency.systems.join('/')} 模板，其他体系暂不能输出。`);
+    project.template_version=agency.version;
     if (systems.includes('EMS')) {
       if (!/14001\s*[:：-]?\s*(2015|2026)|24001-2016/.test(project.criteria_e)) throw new Error('请明确环境标准版本：ISO 14001:2015 或 ISO 14001:2026。');
       project.ems_version = /14001\s*[:：-]?\s*2026/.test(project.criteria_e) ? '2026' : '2015';
@@ -178,7 +187,7 @@ function confirmNoticeReview(event) {
       const professionalCodes = Object.fromEntries(systems.map(s=>[s,value(row,`auditor_${NOTICE_SYSTEMS[s]}`)]));
       if (!/^[A-Z]$/.test(code)) throw new Error('人员代码请使用单个英文字母，如 A、B。');
       if (!['技术专家','实习'].includes(role) && !value(row,'auditor_registration')) throw new Error('请补充审核员注册证书号。');
-      return {id:code,code,name:value(row,'auditor_name'),role,...(systemRoles ? {systemRoles} : {}),registration:value(row,'auditor_registration'),phone:value(row,'auditor_phone'),employer:value(row,'auditor_employer'),fullTime:value(row,'auditor_fullTime'),professionalCodes,independent:!['技术专家','实习'].includes(role)};
+      return {id:code,code,name:value(row,'auditor_name'),role,...(systemRoles ? {systemRoles} : {}),registration:value(row,'auditor_registration'),phone:value(row,'auditor_phone'),employer:value(row,'auditor_employer'),fullTime:value(row,'auditor_fullTime'),professionalCodes,independent:!['技术专家','实习'].includes(role),...(project.agency_id==='nsi' ? {registrationStatus:value(row,'auditor_registrationStatus'),additionalDuty:value(row,'auditor_additionalDuty')} : {})};
     });
     if (!auditors.length || !auditors.some(a=>a.role==='组长')) throw new Error('请填写审核组并指定组长。');
     if (new Set(auditors.map(a=>a.code)).size!==auditors.length) throw new Error('人员代码不能重复。');
@@ -186,6 +195,7 @@ function confirmNoticeReview(event) {
     if (!Number.isInteger(days) || days<1 || days>60) throw new Error('审核起止日期无效，最多支持 60 个日历日。');
     if (days===1 && project.stage2_end_time<=project.stage2_start_time) throw new Error('审核结束时间必须晚于开始时间。');
     if (!(Number(project.stage2_person_days)>0)) throw new Error('批准审核人日必须大于零。');
+    if(project.agency_id==='nsi' && !(Number(project.total_person_days)>=Number(project.stage2_person_days))) throw new Error('审核总人日不能小于现场审核人日。');
     const lunch = Number(project.lunch_hours);
     if (lunch<0 || lunch>3 || parseTime(project.lunch_start)+lunch*60>1020) throw new Error('午休须在当日工作时段内，时长为 0–3 小时。');
     if (!form.elements.namedItem('review_shift_enabled').checked) {

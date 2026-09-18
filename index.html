@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#b21e35">
   <title>海德认证 审核计划辅助系统</title>
-  <link rel="stylesheet" href="styles.css?v=20260918-optimization3">
+  <link rel="stylesheet" href="styles.css?v=20260918-agencies">
   <link rel="icon" href="assets/head-certification-logo.png" type="image/png">
 </head>
 <body>
@@ -211,7 +211,7 @@
         <h2 id="output-title">审核计划输出</h2>
         <button id="btn-download-word" class="word-download-card" type="button" aria-describedby="word-download-status">
           <span class="word-file-icon"><i data-lucide="file-text" aria-hidden="true"></i></span>
-          <span class="word-download-copy"><strong>下载 Word</strong><span>审核实施计划 · DOCX</span></span>
+          <span class="word-download-copy"><strong>下载 Word</strong><span id="word-template-label">海德 · OP-01-05-H/8</span></span>
           <span id="word-download-status" class="word-download-status" role="status">待确认</span>
           <i data-lucide="download" aria-hidden="true"></i>
         </button>
@@ -266,7 +266,12 @@
   <script src="vendor/jsdoc/docToText.js"></script>
   <script src="haide-fields.js"></script>
   <script src="haide-template.js"></script>
-  <script src="haide-plan.js?v=20260918-optimization3"></script>
+  <script src="nsi-template.js?v=20260918-agencies"></script>
+  <script src="agency-profiles.js?v=20260918-agencies"></script>
+  <script src="nsi-notice.js?v=20260918-agencies"></script>
+  <script src="nsi-plan.js?v=20260918-agencies"></script>
+  <script src="agency-review.js?v=20260918-agencies"></script>
+  <script src="haide-plan.js?v=20260918-agencies"></script>
   <script src="audit-rules.js"></script>
   <script src="plan-content.js?v=20260917-daily-communication"></script>
   <script src="plan-meetings.js?v=20260917-personnel-rows"></script>
@@ -275,9 +280,9 @@
   <script src="notice-auditors.js?v=20260917-personnel-rows"></script>
   <script src="clause-picker.js?v=20260917-optimization2"></script>
   <script src="plan-scheduler.js?v=20260918-optimization3"></script>
-  <script src="notice-import.js?v=20260917-optimization2"></script>
+  <script src="notice-import.js?v=20260918-agencies"></script>
   <script src="notice-travel-review.js?v=20260918-optimization3"></script>
-  <script src="notice-review.js?v=20260918-optimization3"></script>
-  <script src="app.js?v=20260918-optimization3"></script>
+  <script src="notice-review.js?v=20260918-agencies"></script>
+  <script src="app.js?v=20260918-agencies"></script>
 </body>
 </html>

@@ -1366,6 +1366,14 @@ body.preview-open { overflow: hidden; }
 .haide-team th:nth-child(7) { width: 8%; }
 .haide-team th:nth-child(8) { width: 16%; }
 .haide-sign { height: 34px; }
+.nsi-document p { white-space: pre-wrap; margin: 6px 0; }
+.nsi-document h3 { font-size: 11pt; margin: 12px 0 6px; }
+.nsi-logo { display: flex; align-items: center; min-width: 0; }
+.nsi-logo img { height: 24px; width: auto; max-width: none; }
+.nsi-team th:first-child { width: 5%; }
+.nsi-team th:nth-child(5) { width: 25%; }
+.nsi-confirmation { break-before: page; padding-top: 20px; }
+.nsi-confirmation p { margin: 20px 0; }
 .haide-schedule-title { text-align: center; break-before: page; }
 .haide-schedule th:nth-child(1) { width: 11%; }
 .haide-schedule th:nth-child(2) { width: 13%; }
